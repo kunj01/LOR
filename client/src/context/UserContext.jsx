@@ -12,4 +12,6 @@ export const UserContext = createContext({
     getNature: () => {},
     getActivity: () => {},
     submitEntry: () => {},
+    createLORRequest: () => {},
+    getMyLORRequests: () => {},
 })

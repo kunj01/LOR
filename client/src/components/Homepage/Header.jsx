@@ -30,7 +30,7 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
 
                 {/* Center - Title */}
                 <div className="flex-1">
-                    <h1 className="text-xl font-semibold text-gray-800">
+                    <h1 className="text-xl font-semibold text-gray-800 text-center">
                         Letter of Recommendation System
                     </h1>
                 </div>

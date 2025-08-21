@@ -1,0 +1,280 @@
+import prisma from "../utils/prismClient.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/ApiError.js";
+import path from "path";
+import fs from "fs";
+
+export const createRequest = async (req, res) => {
+  try {
+    const { teacherId, purpose } = req.body;
+    const studentId = req.user.id;
+
+    if (!teacherId) {
+      return res.status(400).json(new ApiError(400, "teacherId is required"));
+    }
+
+    const teacher = await prisma.user.findUnique({ where: { id: teacherId } });
+    if (!teacher || teacher.role !== "TEACHER") {
+      return res.status(404).json(new ApiError(404, "Teacher not found"));
+    }
+
+    const requestItem = await prisma.lORRequest.create({
+      data: { studentId, teacherId, purpose: purpose || null },
+    });
+
+    return res.status(201).json(new ApiResponse(201, requestItem, "Request created"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+export const listMyRequests = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const items = await prisma.lORRequest.findMany({
+      where: { studentId },
+      orderBy: { createdAt: "asc" },
+      include: { documents: true },
+    });
+    return res.status(200).json(new ApiResponse(200, items, "OK"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+export const listAssignedRequests = async (req, res) => {
+  try {
+    if (req.user.role !== "TEACHER" && req.user.role !== "ADMIN") {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+    const teacherId = req.user.role === "TEACHER" ? req.user.id : undefined;
+    const items = await prisma.lORRequest.findMany({
+      where: teacherId ? { teacherId } : {},
+      orderBy: { createdAt: "asc" },
+      include: {
+        documents: true,
+        student: { select: { id: true, name: true, email: true } },
+        teacher: { select: { id: true, name: true, email: true } },
+      },
+    });
+    return res.status(200).json(new ApiResponse(200, items, "OK"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+export const updateRequestStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, comment } = req.body || {};
+
+    if (status !== "APPROVED" && status !== "REJECTED") {
+      return res.status(400).json(new ApiError(400, "Invalid status"));
+    }
+
+    const item = await prisma.lORRequest.findUnique({ where: { id: Number(id) } });
+    if (!item) {
+      return res.status(404).json(new ApiError(404, "Request not found"));
+    }
+
+    // Only assigned teacher or admin can change status
+    if (
+      !(
+        (req.user.role === "TEACHER" && item.teacherId === req.user.id) ||
+        req.user.role === "ADMIN"
+      )
+    ) {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    if (item.status !== "PENDING") {
+      return res.status(400).json(new ApiError(400, "Only pending requests can be updated"));
+    }
+
+    const updated = await prisma.lORRequest.update({
+      where: { id: item.id },
+      data: { status, comment: comment ?? item.comment },
+    });
+
+    return res.status(200).json(new ApiResponse(200, updated, "Status updated"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+export const listAllRequests = async (req, res) => {
+  try {
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    const items = await prisma.lORRequest.findMany({
+      orderBy: { createdAt: "asc" },
+      include: {
+        student: {
+          select: { id: true, name: true, email: true }
+        },
+        teacher: {
+          select: { id: true, name: true, email: true }
+        },
+        documents: true
+      }
+    });
+
+    return res.status(200).json(new ApiResponse(200, items, "OK"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+
+export const reassignRequest = async (req, res) => {
+  try {
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    const { id } = req.params;
+    const { newTeacherId } = req.body || {};
+
+    if (!newTeacherId) {
+      return res.status(400).json(new ApiError(400, "newTeacherId is required"));
+    }
+
+    const lor = await prisma.lORRequest.findUnique({ where: { id: Number(id) } });
+    if (!lor) {
+      return res.status(404).json(new ApiError(404, "Request not found"));
+    }
+
+    if (lor.status !== "PENDING") {
+      return res.status(400).json(new ApiError(400, "Only pending requests can be reassigned"));
+    }
+
+    const teacher = await prisma.user.findUnique({ where: { id: newTeacherId } });
+    if (!teacher || teacher.role !== "TEACHER") {
+      return res.status(404).json(new ApiError(404, "Target teacher not found"));
+    }
+
+    const updated = await prisma.lORRequest.update({
+      where: { id: lor.id },
+      data: { teacherId: newTeacherId, comment: lor.comment },
+    });
+
+    return res.status(200).json(new ApiResponse(200, updated, "Request reassigned"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+export const exportRequestsCsv = async (req, res) => {
+  try {
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    const items = await prisma.lORRequest.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        teacher: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    const headers = [
+      "id",
+      "studentId",
+      "studentName",
+      "studentEmail",
+      "teacherId",
+      "teacherName",
+      "teacherEmail",
+      "purpose",
+      "status",
+      "comment",
+      "createdAt",
+      "updatedAt",
+    ];
+
+    const escapeCsv = (value) => {
+      if (value === null || value === undefined) return "";
+      const str = String(value);
+      if (/[",\n]/.test(str)) {
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    };
+
+    const rows = items.map((r) => [
+      r.id,
+      r.student?.id ?? "",
+      r.student?.name ?? "",
+      r.student?.email ?? "",
+      r.teacher?.id ?? "",
+      r.teacher?.name ?? "",
+      r.teacher?.email ?? "",
+      r.purpose ?? "",
+      r.status,
+      r.comment ?? "",
+      r.createdAt.toISOString(),
+      r.updatedAt.toISOString(),
+    ]);
+
+    const csv = [headers.join(","), ...rows.map((row) => row.map(escapeCsv).join(","))].join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=lor_requests.csv");
+    return res.status(200).send(csv);
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+export const uploadSupportingDocuments = async (req, res) => {
+  try {
+    const { id } = req.params; // LOR request id
+    const requestItem = await prisma.lORRequest.findUnique({ where: { id: Number(id) } });
+    if (!requestItem) {
+      return res.status(404).json(new ApiError(404, "Request not found"));
+    }
+
+    // Only the student who owns the request or admin can upload
+    if (!(req.user.role === "ADMIN" || req.user.id === requestItem.studentId)) {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    const files = req.files || [];
+    if (!files.length) {
+      return res.status(400).json(new ApiError(400, "No files uploaded"));
+    }
+
+    const created = await prisma.supportingDocument.createMany({
+      data: files.map(f => ({
+        requestId: requestItem.id,
+        originalName: f.originalname,
+        filename: f.filename,
+        mimeType: f.mimetype,
+        size: f.size,
+      }))
+    });
+
+    return res.status(201).json(new ApiResponse(201, { count: created.count }, "Documents uploaded"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+
+export const listActiveTeachers = async (req, res) => {
+  try {
+    const teachers = await prisma.user.findMany({
+      where: { role: "TEACHER", status: "ACTIVE" },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" }
+    });
+    return res.status(200).json(new ApiResponse(200, teachers, "OK"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+

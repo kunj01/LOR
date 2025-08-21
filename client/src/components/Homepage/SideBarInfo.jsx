@@ -130,8 +130,15 @@ export const AdminNavContentInfo = [
     },
     {
         key: "students",
-        name: "Create New Students",
+        name: "Students",
         path: "/admin/students",
+        icon: <PiUsersThree />,
+        fillIcon: <PiUsersThreeDuotone />
+    },
+    {
+        key: "teachers",
+        name: "Teachers",
+        path: "/admin/teachers",
         icon: <PiUsersThree />,
         fillIcon: <PiUsersThreeDuotone />
     },

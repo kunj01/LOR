@@ -16,6 +16,12 @@ datasource db {
 enum UserRole {
   ADMIN
   STUDENT
+  TEACHER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
 }
 
 model User {
@@ -24,4 +30,60 @@ model User {
   name       String
   password   String
   role       UserRole    @default(STUDENT)
+  status     UserStatus  @default(ACTIVE)
+  batchId    Int?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Relations
+  batch      Batch?      @relation(fields: [batchId], references: [id])
+  studentRequests  LORRequest[] @relation("StudentRequests")
+  teacherRequests  LORRequest[] @relation("TeacherRequests")
+}
+
+model Batch {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  students    User[]
+
+  @@unique([name])
+}
+
+enum LORStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model LORRequest {
+  id         Int       @id @default(autoincrement())
+  studentId  String
+  teacherId  String
+  purpose    String?
+  status     LORStatus @default(PENDING)
+  comment    String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  student    User      @relation("StudentRequests", fields: [studentId], references: [id])
+  teacher    User      @relation("TeacherRequests", fields: [teacherId], references: [id])
+  documents  SupportingDocument[]
+}
+
+model SupportingDocument {
+  id           Int        @id @default(autoincrement())
+  requestId    Int
+  originalName String
+  filename     String
+  mimeType     String
+  size         Int
+  createdAt    DateTime   @default(now())
+
+  request      LORRequest @relation(fields: [requestId], references: [id])
+  @@index([requestId])
 }

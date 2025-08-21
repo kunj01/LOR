@@ -58,29 +58,37 @@ export default function LoginContent() {
     if (checkEmptyFields()) return;
     console.table(credentials);
     setIsPending(true);
-    const res = await loginUser();
-    console.log("Login response:", res);
-    console.log("User role:", res?.role);
-    console.log("Response type:", typeof res);
-    console.log("Response keys:", res ? Object.keys(res) : "No response");
+    try {
+      const res = await loginUser();
+      console.log("Login response:", res);
+      console.log("User role:", res?.role);
+      console.log("Response type:", typeof res);
+      console.log("Response keys:", res ? Object.keys(res) : "No response");
 
-    if (res) {
-      // Navigate based on user role
-      console.log("Attempting navigation for role:", res.role);
-      if (res.role === "ADMIN") {
-        console.log("Navigating to /admin");
-        navigate("/admin");
-      } else if (res.role === "STUDENT") {
-        console.log("Navigating to /student");
-        navigate("/student");
+      if (res) {
+        // Navigate based on user role
+        console.log("Attempting navigation for role:", res.role);
+        if (res.role === "ADMIN") {
+          console.log("Navigating to /admin");
+          navigate("/admin");
+        } else if (res.role === "STUDENT") {
+          console.log("Navigating to /student");
+          navigate("/student");
+        } else if (res.role === "TEACHER") {
+          console.log("Navigating to /teacher");
+          navigate("/teacher");
+        } else {
+          console.log("Navigating to /home (fallback)");
+          navigate("/home"); // fallback
+        }
       } else {
-        console.log("Navigating to /home (fallback)");
-        navigate("/home"); // fallback
+        console.log("No response received from loginUser");
       }
-    } else {
-      console.log("No response received from loginUser");
+    } catch (e) {
+      // errors are toasted in postApi; nothing else to do
+    } finally {
+      setIsPending(false);
     }
-    setIsPending(false);
   }
 
   return (

@@ -18,10 +18,10 @@ export default function UserContextProvider({ children }) {
         try {
             const res = await getApi("/auth/", {}, false); // Don't show toast for auth checks
             console.log(res);
-            if (res.status === 200) {
+            if (res?.statusCode === 200 && res?.data) {
                 console.log("Authorized User");
-                setUserInfo(res.data.data);
-                return res.data.data.role;
+                setUserInfo(res.data);
+                return res.data.role;
             }
             return false;
         } catch (error) {
@@ -66,7 +66,7 @@ export default function UserContextProvider({ children }) {
         try {
             const res = await getApi("/auth/logout");
             console.log(res);
-            if (res.statusCode === 200) {
+            if (res?.statusCode === 200) {
                 console.log("Logged out successfully");
                 // Clear user info immediately
                 setUserInfo({});
@@ -122,6 +122,32 @@ export default function UserContextProvider({ children }) {
         return false;
     }
 
+    async function handleCreateLORRequest({ teacherId, purpose }) {
+        if (!teacherId) {
+            toast.error("Teacher ID is required");
+            return false;
+        }
+        const res = await postApi("/lor", { teacherId, purpose });
+        if (res?.statusCode === 201) {
+            toast.success("LOR request submitted");
+            return res.data;
+        }
+        toast.error(res?.message || "Failed to submit LOR request");
+        return false;
+    }
+
+    async function handleGetMyLORRequests() {
+        try {
+            const res = await getApi("/lor/mine");
+            if (res?.statusCode === 200) {
+                return res.data || [];
+            }
+            return [];
+        } catch (e) {
+            return [];
+        }
+    }
+
     const ctxValue = {
         userInfo: userInfo,
         setUserInfo: setUserData,
@@ -134,6 +160,8 @@ export default function UserContextProvider({ children }) {
         getNature: handleGetNature,
         getActivity: handleGetActivity,
         submitEntry: handleSubmitEntry,
+        createLORRequest: handleCreateLORRequest,
+        getMyLORRequests: handleGetMyLORRequests,
     }
 
     return (

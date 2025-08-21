@@ -4,13 +4,44 @@ import bcrypt from "bcrypt";
 const prisma = new PrismaClient();
 
 async function main() {
+  // Create sample batches (global, no class)
+  const batch1 = await prisma.batch.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      name: "2024",
+      description: "2024 Batch"
+    },
+  });
+
+  const batch2 = await prisma.batch.upsert({
+    where: { id: 2 },
+    update: {},
+    create: {
+      id: 2,
+      name: "2023",
+      description: "2023 Batch"
+    },
+  });
+
+  const batch3 = await prisma.batch.upsert({
+    where: { id: 3 },
+    update: {},
+    create: {
+      id: 3,
+      name: "2025",
+      description: "2025 Batch"
+    },
+  });
+
   // Create a test admin user
   const adminPassword = bcrypt.hashSync("admin123", 10);
   const admin = await prisma.user.upsert({
-    where: { id: "ADMIN001" },
+    where: { id: "admin" },
     update: {},
     create: {
-      id: "ADMIN001",
+      id: "admin",
       email: "admin@example.com",
       name: "Admin User",
       password: adminPassword,
@@ -21,20 +52,37 @@ async function main() {
   // Create a test student user
   const studentPassword = bcrypt.hashSync("student123", 10);
   const student = await prisma.user.upsert({
-    where: { id: "STUDENT001" },
+    where: { id: "student001" },
     update: {},
     create: {
-      id: "STUDENT001",
+      id: "student001",
       email: "student@example.com",
       name: "Student User",
       password: studentPassword,
       role: "STUDENT",
+      batchId: 1,
+    },
+  });
+
+  // Create a test teacher user
+  const teacherPassword = bcrypt.hashSync("teacher123", 10);
+  const teacher = await prisma.user.upsert({
+    where: { id: "TEACHER001" },
+    update: {},
+    create: {
+      id: "TEACHER001",
+      email: "teacher@example.com",
+      name: "Teacher User",
+      password: teacherPassword,
+      role: "TEACHER",
     },
   });
 
   console.log("Seed data created:");
+  console.log("Batches:", batch1, batch2, batch3);
   console.log("Admin:", admin);
   console.log("Student:", student);
+  console.log("Teacher:", teacher);
 }
 
 main()

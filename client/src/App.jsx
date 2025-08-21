@@ -2,11 +2,13 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Login from "./pages/Login";
 import Homepage from "./pages/Homepage";
 import StudentPage from "./pages/StudentPage";
+import TeacherPage from "./pages/TeacherPage";
 import AdminPage from "./pages/AdminPage";
 import AdminHome from "./pages/admin/AdminHome";
 import ManageStudents from "./pages/admin/ManageStudents";
 import LORApplications from "./pages/admin/LORApplications";
 import AdminSettings from "./pages/admin/AdminSettings";
+import ManageTeachers from "./pages/admin/ManageTeachers";
 import HomeLayout from "./components/Homepage/HomeLayout";
 import LORSystem from "./pages/LORSystem";
 import FeedbackPage from "./pages/FeedbackPage";
@@ -37,6 +39,8 @@ function ProtectedRoute({ children, allowedRoles }) {
       return <Navigate to="/admin" replace />;
     } else if (userInfo.role === "STUDENT") {
       return <Navigate to="/student" replace />;
+    } else if (userInfo.role === "TEACHER") {
+      return <Navigate to="/teacher" replace />;
     }
   }
 
@@ -73,6 +77,14 @@ function App() {
                 }
               />
               <Route
+                path="/teacher"
+                element={
+                  <ProtectedRoute allowedRoles={["TEACHER"]}>
+                    <TeacherPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/admin"
                 element={
                   <ProtectedRoute allowedRoles={["ADMIN"]}>
@@ -81,8 +93,9 @@ function App() {
                 }
               >
                 <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<AdminPage />} />
+                <Route path="dashboard" element={<AdminHome />} />
                 <Route path="students" element={<ManageStudents />} />
+                <Route path="teachers" element={<ManageTeachers />} />
                 <Route path="lor" element={<LORApplications />} />
                 <Route path="settings" element={<AdminSettings />} />
               </Route>

@@ -22,11 +22,11 @@ export default function SideMenu({ selected, setSelected, isOpen, onToggle }) {
             >
                 <div className="h-full flex flex-col">
                     {/* Sidebar Header with CHARUSAT logo */}
-                    <div className="p-4 border-b border-gray-200">
+                    {/* <div className="p-4 border-b border-gray-200">
                         <div className="flex items-center gap-2">
                             <img src="/icons/charusat_logo.jpg" alt="CHARUSAT" className="w-28" />
                         </div>
-                    </div>
+                    </div> */}
                     
                     {/* Navigation Items */}
                     <div className="flex-1 p-4">

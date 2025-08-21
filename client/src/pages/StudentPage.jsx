@@ -1,10 +1,13 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { UserContext } from "../context/UserContext";
 import PageWrapper from "../components/UI/PageWrapper";
 import { useNavigate } from "react-router";
 import Button from "../components/UI/Buttons";
 import toast from "react-hot-toast";
 import { FiSettings } from "react-icons/fi";
+import axios from "axios";
+import apiInfo from "../helpers/API/apiInfo";
+import getApi from "../helpers/API/getApi";
 import postApi from "../helpers/API/postApi";
 
 function PasswordStrength({ password }) {
@@ -33,7 +36,7 @@ function PasswordStrength({ password }) {
 }
 
 export default function StudentPage() {
-  const { userInfo, logoutUser } = useContext(UserContext);
+  const { userInfo, logoutUser, createLORRequest, getMyLORRequests } = useContext(UserContext);
   const navigate = useNavigate();
   const [showResetModal, setShowResetModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -41,6 +44,31 @@ export default function StudentPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showProfile, setShowProfile] = useState(false);
+
+  // LOR minimal form state
+  const [teacherId, setTeacherId] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [lorLoading, setLorLoading] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [requests, setRequests] = useState([]);
+
+  async function loadRequests() {
+    const items = await getMyLORRequests();
+    setRequests(items);
+  }
+
+  useEffect(() => {
+    loadRequests();
+    (async () => {
+      try {
+        const res = await getApi('/lor/teachers');
+        if (res?.statusCode === 200) setTeachers(res.data);
+      } catch {}
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -104,6 +132,37 @@ export default function StudentPage() {
     newPassword === confirmPassword &&
     newPassword.length >= 6;
 
+  async function handleSubmitLOR(e) {
+    e.preventDefault();
+    if (!teacherId.trim()) {
+      toast.error("Teacher ID is required");
+      return;
+    }
+    setLorLoading(true);
+    try {
+      const res = await createLORRequest({ teacherId: teacherId.trim(), purpose: purpose.trim() });
+      if (res && res.id) {
+        // Optimistically add to list
+        setRequests(prev => [{ id: res.id, teacherId: teacherId.trim(), purpose: purpose.trim(), status: 'PENDING', createdAt: new Date().toISOString() }, ...prev]);
+        // Upload files if selected
+        if (files.length > 0) {
+          const formData = new FormData();
+          for (const f of files) formData.append("files", f);
+          await axios.post(`${apiInfo.URL}/lor/${res.id}/documents`, formData, {
+            withCredentials: true,
+          });
+        }
+        setTeacherId("");
+        setPurpose("");
+        setFiles([]);
+        // Refresh list to ensure consistency
+        await loadRequests();
+      }
+    } finally {
+      setLorLoading(false);
+    }
+  }
+
   return (
     <PageWrapper>
       <div className="min-h-screen bg-gray-50">
@@ -115,6 +174,13 @@ export default function StudentPage() {
                   Student Dashboard - LOR/Feedback Platform
                 </h1>
                 <div className="flex items-center gap-2">
+                  <button
+                    className="p-2 rounded-full hover:bg-gray-100 focus:outline-none"
+                    title="Profile"
+                    onClick={() => setShowProfile(true)}
+                  >
+                    <span className="text-sm text-gray-700 hover:text-gray-900">Profile</span>
+                  </button>
                   <button
                     className="p-2 rounded-full hover:bg-gray-100 focus:outline-none"
                     title="Reset Password"
@@ -131,6 +197,26 @@ export default function StudentPage() {
                   </Button>
                 </div>
               </div>
+
+              {showProfile && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                  <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+                    <button
+                      className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+                      onClick={() => setShowProfile(false)}
+                    >
+                      <span className="text-2xl">&times;</span>
+                    </button>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Profile</h2>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <p><strong>Name:</strong> {userInfo?.name}</p>
+                      <p><strong>Enrollment:</strong> {userInfo?.id}</p>
+                      <p><strong>Email:</strong> {userInfo?.email}</p>
+                      <p><strong>Role:</strong> {userInfo?.role}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Reset Password Modal */}
               {showResetModal && (
@@ -213,61 +299,85 @@ export default function StudentPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm md:col-span-2 lg:col-span-2">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Student Information
+                    Request a Letter of Recommendation
                   </h3>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p>
-                      <strong>Name:</strong> {userInfo?.name}
-                    </p>
-                    <p>
-                      <strong>Enrollment:</strong> {userInfo?.id}
-                    </p>
-                    <p>
-                      <strong>Email:</strong> {userInfo?.email}
-                    </p>
-                    <p>
-                      <strong>Role:</strong> {userInfo?.role}
-                    </p>
-                  </div>
+                  <form onSubmit={handleSubmitLOR} className="space-y-3 text-sm text-gray-600">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Teacher</label>
+                      <select
+                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        value={teacherId}
+                        onChange={(e) => setTeacherId(e.target.value)}
+                        required
+                      >
+                        <option value="">Select teacher</option>
+                        {teachers.map(t => (
+                          <option key={t.id} value={t.id}>{t.id} - {t.name || t.email}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Purpose (optional)</label>
+                      <input
+                        type="text"
+                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        value={purpose}
+                        onChange={(e) => setPurpose(e.target.value)}
+                        placeholder="e.g., MS Application"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Supporting Documents</label>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Up to 5 files. PDF/Images preferred.</p>
+                    </div>
+                    <Button type="PRIMARY" extraClasses="w-full" disabled={lorLoading}>
+                      {lorLoading ? "Submitting..." : "Submit LOR Request"}
+                    </Button>
+                  </form>
                 </div>
+              </div>
 
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Quick Actions
-                  </h3>
-                  <div className="space-y-3">
-                    <Button type="MAIN" extraClasses="w-full" disabled>
-                      Submit LOR Request
-                    </Button>
-                    <Button type="SECONDARY" extraClasses="w-full" disabled>
-                      View My Requests
-                    </Button>
-                    <Button type="SECONDARY" extraClasses="w-full" disabled>
-                      Track Status
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    LOR Status
-                  </h3>
-                  <div className="space-y-3 text-sm text-gray-600">
-                    <div className="flex justify-between">
-                      <span>Pending Requests:</span>
-                      <span className="font-semibold">0</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Completed LORs:</span>
-                      <span className="font-semibold">0</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Draft Requests:</span>
-                      <span className="font-semibold">0</span>
-                    </div>
-                  </div>
+              <div className="mt-6 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">My LOR Requests</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {requests.length === 0 ? (
+                        <tr>
+                          <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No requests yet</td>
+                        </tr>
+                      ) : (
+                        requests.map((r) => (
+                          <tr key={r.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">{r.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">{r.teacherId}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">{r.purpose || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">{r.status}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">{r.status === 'REJECTED' && r.comment ? r.comment : '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">{new Date(r.createdAt).toLocaleString()}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
