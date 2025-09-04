@@ -146,4 +146,215 @@ export const submitEntry = async (req, res) => {
   }
 };
 
+const createStudentProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Check if profile already exists
+    const existingProfile = await prisma.studentProfile.findUnique({
+      where: { userId }
+    });
+    
+    if (existingProfile) {
+      return res.status(400).json(new ApiError(400, "Profile already exists"));
+    }
+    
+    const {
+      studentId,
+      studentFullName,
+      emailId,
+      admissionMonth,
+      admissionYear,
+      candidateMobile,
+      parentMobile,
+      bondPeriodCompleted,
+      placementThroughCDPC,
+      letterHeadCount,
+      semesterResults,
+      universityPreferences,
+      competitiveExams,
+      facultySelection
+    } = req.body;
+    
+    // Create profile with all related data
+    const profile = await prisma.studentProfile.create({
+      data: {
+        userId,
+        studentId,
+        studentFullName,
+        emailId,
+        admissionMonth,
+        admissionYear,
+        candidateMobile,
+        parentMobile,
+        bondPeriodCompleted,
+        placementThroughCDPC,
+        letterHeadCount,
+        facultySelection,
+        semesterResults: {
+          create: semesterResults.map(result => ({
+            semester: result.semester,
+            attendance: result.attendance,
+            cgpa: result.cgpa
+          }))
+        },
+        universityPreferences: {
+          create: universityPreferences.map(pref => ({
+            universityName: pref.universityName,
+            courseName: pref.courseName,
+            countryName: pref.countryName,
+            intakeMonth: pref.intakeMonth,
+            intakeYear: pref.intakeYear
+          }))
+        },
+        competitiveExams: {
+          create: competitiveExams.map(exam => ({
+            examName: exam.examName,
+            score: exam.score,
+            scorecardFile: exam.scorecardFile
+          }))
+        }
+      },
+      include: {
+        semesterResults: true,
+        universityPreferences: true,
+        competitiveExams: true
+      }
+    });
+    
+    // Mark user profile as completed
+    await prisma.user.update({
+      where: { id: userId },
+      data: { profileCompleted: true }
+    });
+    
+    return res.status(201).json(new ApiResponse(201, profile, "Student profile created successfully"));
+  } catch (err) {
+    console.error("Profile creation error:", err);
+    return res.status(500).json(new ApiError(500, "Internal Server Error", err));
+  }
+};
+
+const getStudentProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      include: {
+        semesterResults: {
+          orderBy: { semester: 'asc' }
+        },
+        universityPreferences: true,
+        competitiveExams: true
+      }
+    });
+    
+    if (!profile) {
+      return res.status(404).json(new ApiError(404, "Profile not found"));
+    }
+    
+    return res.status(200).json(new ApiResponse(200, profile, "Profile retrieved successfully"));
+  } catch (err) {
+    console.error("Profile retrieval error:", err);
+    return res.status(500).json(new ApiError(500, "Internal Server Error", err));
+  }
+};
+
+const updateStudentProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId }
+    });
+    
+    if (!profile) {
+      return res.status(404).json(new ApiError(404, "Profile not found"));
+    }
+    
+    const {
+      studentId,
+      studentFullName,
+      emailId,
+      admissionMonth,
+      admissionYear,
+      candidateMobile,
+      parentMobile,
+      bondPeriodCompleted,
+      placementThroughCDPC,
+      letterHeadCount,
+      semesterResults,
+      universityPreferences,
+      competitiveExams,
+      facultySelection
+    } = req.body;
+    
+    // Update profile with all related data
+    const updatedProfile = await prisma.studentProfile.update({
+      where: { userId },
+      data: {
+        studentId,
+        studentFullName,
+        emailId,
+        admissionMonth,
+        admissionYear,
+        candidateMobile,
+        parentMobile,
+        bondPeriodCompleted,
+        placementThroughCDPC,
+        letterHeadCount,
+        facultySelection,
+        // Delete existing related data and recreate
+        semesterResults: {
+          deleteMany: {},
+          create: semesterResults.map(result => ({
+            semester: result.semester,
+            attendance: result.attendance,
+            cgpa: result.cgpa
+          }))
+        },
+        universityPreferences: {
+          deleteMany: {},
+          create: universityPreferences.map(pref => ({
+            universityName: pref.universityName,
+            courseName: pref.courseName,
+            countryName: pref.countryName,
+            intakeMonth: pref.intakeMonth,
+            intakeYear: pref.intakeYear
+          }))
+        },
+        competitiveExams: {
+          deleteMany: {},
+          create: competitiveExams.map(exam => ({
+            examName: exam.examName,
+            score: exam.score,
+            scorecardFile: exam.scorecardFile
+          }))
+        }
+      },
+      include: {
+        semesterResults: true,
+        universityPreferences: true,
+        competitiveExams: true
+      }
+    });
+    
+    return res.status(200).json(new ApiResponse(200, updatedProfile, "Profile updated successfully"));
+  } catch (err) {
+    console.error("Profile update error:", err);
+    return res.status(500).json(new ApiError(500, "Internal Server Error", err));
+  }
+};
+
+export { 
+  // listStudents,
+  // createStudent,
+  // updateStudent,
+  // deleteStudent,
+  createStudentProfile,
+  getStudentProfile,
+  updateStudentProfile
+};
+
 

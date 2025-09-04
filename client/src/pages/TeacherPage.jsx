@@ -332,6 +332,7 @@ export default function TeacherPage() {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supporting Docs</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
@@ -376,6 +377,7 @@ export default function TeacherPage() {
                                   {request.status}
                                 </span>
                               </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{request.comment ? request.comment : '-'}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {new Date(request.createdAt).toLocaleDateString()}
                               </td>

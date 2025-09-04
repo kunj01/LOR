@@ -68,7 +68,7 @@ const AdminHome = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.users?.total || 0}</p>
+              <p className="text-2xl font-bold text-gray-900">{(stats?.users?.total!=0)?stats?.users?.total-1: 0}</p>
             </div>
           </div>
         </div>

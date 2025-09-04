@@ -32,6 +32,7 @@ model User {
   role       UserRole    @default(STUDENT)
   status     UserStatus  @default(ACTIVE)
   batchId    Int?
+  profileCompleted Boolean @default(false)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
@@ -39,6 +40,7 @@ model User {
   batch      Batch?      @relation(fields: [batchId], references: [id])
   studentRequests  LORRequest[] @relation("StudentRequests")
   teacherRequests  LORRequest[] @relation("TeacherRequests")
+  studentProfile StudentProfile?
 }
 
 model Batch {
@@ -86,4 +88,78 @@ model SupportingDocument {
 
   request      LORRequest @relation(fields: [requestId], references: [id])
   @@index([requestId])
+}
+
+model StudentProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  studentId             String
+  studentFullName       String
+  emailId               String
+  admissionMonth        String
+  admissionYear         Int
+  candidateMobile       String
+  parentMobile          String
+  bondPeriodCompleted   Boolean
+  placementThroughCDPC  Boolean
+  letterHeadCount       Int?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  semesterResults       SemesterResult[]
+  universityPreferences UniversityPreference[]
+  competitiveExams      CompetitiveExam[]
+  facultySelection      String?
+
+  @@index([userId])
+}
+
+model SemesterResult {
+  id              String         @id @default(cuid())
+  profileId       String
+  semester        Int
+  attendance      Float?
+  cgpa            Float?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  profile         StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, semester])
+  @@index([profileId])
+}
+
+model UniversityPreference {
+  id           String         @id @default(cuid())
+  profileId    String
+  universityName String
+  courseName   String
+  countryName  String
+  intakeMonth  String
+  intakeYear   Int
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  profile      StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model CompetitiveExam {
+  id           String         @id @default(cuid())
+  profileId    String
+  examName     String
+  score        String?
+  scorecardFile String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  profile      StudentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
 }

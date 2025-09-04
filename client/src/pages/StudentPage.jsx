@@ -9,6 +9,8 @@ import axios from "axios";
 import apiInfo from "../helpers/API/apiInfo";
 import getApi from "../helpers/API/getApi";
 import postApi from "../helpers/API/postApi";
+import FirstTimeLoginForm from "../components/StudentProfile/FirstTimeLoginForm";
+import StudentProfileView from "../components/StudentProfile/StudentProfileView";
 
 function PasswordStrength({ password }) {
   let strength = 0;
@@ -38,14 +40,13 @@ function PasswordStrength({ password }) {
 export default function StudentPage() {
   const { userInfo, logoutUser, createLORRequest, getMyLORRequests } = useContext(UserContext);
   const navigate = useNavigate();
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  
+  // Profile management state
+  const [profileData, setProfileData] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
-
+  const [isEditMode, setIsEditMode] = useState(false);
+  
   // LOR minimal form state
   const [teacherId, setTeacherId] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -53,13 +54,21 @@ export default function StudentPage() {
   const [files, setFiles] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function loadRequests() {
     const items = await getMyLORRequests();
     setRequests(items);
   }
 
+  // Load profile data on component mount
   useEffect(() => {
+    loadProfileData();
     loadRequests();
     (async () => {
       try {
@@ -69,6 +78,36 @@ export default function StudentPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadProfileData = async () => {
+    try {
+      setProfileLoading(true);
+      const response = await getApi('/students/profile');
+      
+      if (response?.statusCode === 200) {
+        setProfileData(response.data);
+      } else if (response?.statusCode === 404) {
+        // Profile doesn't exist yet
+        setProfileData(null);
+      } else {
+        console.error('Failed to load profile:', response);
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      setProfileData(null);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleProfileComplete = (newProfileData) => {
+    setProfileData(newProfileData);
+    toast.success('Profile completed successfully!');
+  };
+
+  const handleProfileUpdate = (updatedProfileData) => {
+    setProfileData(updatedProfileData);
+  };
 
   const handleLogout = async () => {
     try {
@@ -163,6 +202,30 @@ export default function StudentPage() {
     }
   }
 
+  // If profile is loading, show loading state
+  if (profileLoading) {
+    return (
+      <PageWrapper>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading your profile...</p>
+          </div>
+        </div>
+      </PageWrapper>
+    );
+  }
+
+  // If no profile exists, show first-time login form
+  if (!profileData) {
+    return (
+      <PageWrapper>
+        <FirstTimeLoginForm onProfileComplete={handleProfileComplete} />
+      </PageWrapper>
+    );
+  }
+
+  // If profile exists, show main student dashboard
   return (
     <PageWrapper>
       <div className="min-h-screen bg-gray-50">
@@ -198,22 +261,25 @@ export default function StudentPage() {
                 </div>
               </div>
 
+              {/* Profile Modal */}
               {showProfile && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-                  <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+                  <div className="bg-white rounded-lg shadow-lg w-full max-w-6xl h-5/6 overflow-y-auto relative">
                     <button
-                      className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
-                      onClick={() => setShowProfile(false)}
+                      className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 z-10"
+                      onClick={() => {
+                        setShowProfile(false);
+                        setIsEditMode(false);
+                      }}
                     >
                       <span className="text-2xl">&times;</span>
                     </button>
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Profile</h2>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <p><strong>Name:</strong> {userInfo?.name}</p>
-                      <p><strong>Enrollment:</strong> {userInfo?.id}</p>
-                      <p><strong>Email:</strong> {userInfo?.email}</p>
-                      <p><strong>Role:</strong> {userInfo?.role}</p>
-                    </div>
+                    <StudentProfileView
+                      profileData={profileData}
+                      isEditMode={isEditMode}
+                      onEditMode={setIsEditMode}
+                      onProfileUpdate={handleProfileUpdate}
+                    />
                   </div>
                 </div>
               )}
@@ -292,7 +358,7 @@ export default function StudentPage() {
                   <div className="ml-3">
                     <p className="text-sm text-blue-700">
                       Welcome, <strong>{userInfo?.name}</strong>! You are logged
-                      in as a student.
+                      in as a student. Your profile is complete and you can now request LORs.
                     </p>
                   </div>
                 </div>
@@ -371,7 +437,7 @@ export default function StudentPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.teacherId}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.purpose || '-'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.status}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">{r.status === 'REJECTED' && r.comment ? r.comment : '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">{ r.comment ? r.comment : '-'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{new Date(r.createdAt).toLocaleString()}</td>
                           </tr>
                         ))

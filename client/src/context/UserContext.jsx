@@ -5,6 +5,7 @@ export const UserContext = createContext({
     setUserInfo: () => {},
     role: "",
     isInitialized: false,
+    profileCompleted: false,
     pingUser: () => {},
     logoutUser: () => {},
     getCategories: () => {},

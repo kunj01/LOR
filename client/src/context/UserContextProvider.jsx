@@ -8,9 +8,14 @@ import toast from "react-hot-toast";
 export default function UserContextProvider({ children }) {
     const [userInfo, setUserInfo] = useState({});
     const [isInitialized, setIsInitialized] = useState(false);
+    const [profileCompleted, setProfileCompleted] = useState(false);
 
     function setUserData(data) {
         setUserInfo(data);
+        // Check if profile is completed when user data is set
+        if (data && data.profileCompleted !== undefined) {
+            setProfileCompleted(data.profileCompleted);
+        }
     }
 
     async function handlePingUser() {
@@ -21,6 +26,7 @@ export default function UserContextProvider({ children }) {
             if (res?.statusCode === 200 && res?.data) {
                 console.log("Authorized User");
                 setUserInfo(res.data);
+                setProfileCompleted(res.data.profileCompleted || false);
                 return res.data.role;
             }
             return false;
@@ -153,6 +159,7 @@ export default function UserContextProvider({ children }) {
         setUserInfo: setUserData,
         role: userInfo.role,
         isInitialized: isInitialized,
+        profileCompleted: profileCompleted,
         pingUser: handlePingUser,
         logoutUser: handleLogout,
         getCategories: handleGetCategories,
