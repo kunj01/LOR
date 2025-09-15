@@ -6,7 +6,7 @@ import fs from "fs";
 
 export const createRequest = async (req, res) => {
   try {
-    const { teacherId, purpose } = req.body;
+    const { teacherId, purpose, copies, requestData } = req.body;
     const studentId = req.user.id;
 
     if (!teacherId) {
@@ -19,7 +19,13 @@ export const createRequest = async (req, res) => {
     }
 
     const requestItem = await prisma.lORRequest.create({
-      data: { studentId, teacherId, purpose: purpose || null },
+      data: {
+        studentId,
+        teacherId,
+        purpose: purpose || null,
+        copies: copies ? Number(copies) : null,
+        requestData: requestData ? requestData : null,
+      },
     });
 
     return res.status(201).json(new ApiResponse(201, requestItem, "Request created"));
@@ -68,7 +74,8 @@ export const updateRequestStatus = async (req, res) => {
     const { id } = req.params;
     const { status, comment } = req.body || {};
 
-    if (status !== "APPROVED" && status !== "REJECTED") {
+    const allowed = ["PENDING", "APPROVED", "REJECTED", "CHANGES_REQUESTED"];
+    if (!allowed.includes(status)) {
       return res.status(400).json(new ApiError(400, "Invalid status"));
     }
 
@@ -87,8 +94,17 @@ export const updateRequestStatus = async (req, res) => {
       return res.status(403).json(new ApiError(403, "Forbidden"));
     }
 
-    if (item.status !== "PENDING") {
-      return res.status(400).json(new ApiError(400, "Only pending requests can be updated"));
+    // Simple workflow rules:
+    // - Teacher/Admin can move PENDING -> APPROVED/REJECTED/CHANGES_REQUESTED
+    // - Student can move CHANGES_REQUESTED -> PENDING after edits
+    if (req.user.role === "STUDENT" && status === "PENDING" && item.status === "CHANGES_REQUESTED") {
+      // ok
+    } else if (req.user.role !== "STUDENT") {
+      if (item.status !== "PENDING" && item.status !== "CHANGES_REQUESTED") {
+        return res.status(400).json(new ApiError(400, "Only pending/changes requested can be updated"));
+      }
+    } else {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
     }
 
     const updated = await prisma.lORRequest.update({
@@ -272,6 +288,98 @@ export const listActiveTeachers = async (req, res) => {
       orderBy: { name: "asc" }
     });
     return res.status(200).json(new ApiResponse(200, teachers, "OK"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+// New: Get a single request with full details including comments and student profile
+export const getRequestDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await prisma.lORRequest.findUnique({
+      where: { id: Number(id) },
+      include: {
+        documents: true,
+        student: { select: { id: true, name: true, email: true, studentProfile: true } },
+        teacher: { select: { id: true, name: true, email: true } },
+        comments: {
+          include: { author: { select: { id: true, name: true, role: true } } },
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+    if (!item) return res.status(404).json(new ApiError(404, "Request not found"));
+
+    // Authorization: student, assigned teacher or admin can view
+    if (!(
+      req.user.role === "ADMIN" ||
+      req.user.id === item.studentId ||
+      req.user.id === item.teacherId
+    )) {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    return res.status(200).json(new ApiResponse(200, item, "OK"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+// New: Add a comment to a request (teacher or student)
+export const addRequestComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { body } = req.body || {};
+    if (!body || !body.trim()) {
+      return res.status(400).json(new ApiError(400, "Comment body is required"));
+    }
+    const item = await prisma.lORRequest.findUnique({ where: { id: Number(id) } });
+    if (!item) return res.status(404).json(new ApiError(404, "Request not found"));
+
+    if (!(
+      req.user.role === "ADMIN" ||
+      req.user.id === item.studentId ||
+      req.user.id === item.teacherId
+    )) {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    const comment = await prisma.lORRequestComment.create({
+      data: {
+        requestId: item.id,
+        authorId: req.user.id,
+        body: body.trim(),
+      },
+      include: { author: { select: { id: true, name: true, role: true } } }
+    });
+    return res.status(201).json(new ApiResponse(201, comment, "Comment added"));
+  } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+// New: Student updates mutable fields while status is PENDING or CHANGES_REQUESTED
+export const updateRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { purpose, copies, requestData } = req.body || {};
+    const item = await prisma.lORRequest.findUnique({ where: { id: Number(id) } });
+    if (!item) return res.status(404).json(new ApiError(404, "Request not found"));
+    if (!(req.user.role === "ADMIN" || req.user.id === item.studentId)) {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+    if (!(item.status === "PENDING" || item.status === "CHANGES_REQUESTED")) {
+      return res.status(400).json(new ApiError(400, "Request cannot be edited in current status"));
+    }
+    const updated = await prisma.lORRequest.update({
+      where: { id: item.id },
+      data: {
+        purpose: purpose ?? item.purpose,
+        copies: copies !== undefined ? Number(copies) : item.copies,
+        requestData: requestData !== undefined ? requestData : item.requestData,
+      }
+    });
+    return res.status(200).json(new ApiResponse(200, updated, "Request updated"));
   } catch (err) {
     return res.status(500).json(new ApiError(500, "Server Error", err));
   }

@@ -146,6 +146,14 @@ export const submitEntry = async (req, res) => {
   }
 };
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidMobile(mobile) {
+  return /^\d{10}$/.test(mobile);
+}
+
 const createStudentProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -175,6 +183,17 @@ const createStudentProfile = async (req, res) => {
       competitiveExams,
       facultySelection
     } = req.body;
+
+    // Basic validation
+    if (!studentId || !studentFullName || !emailId) {
+      return res.status(400).json(new ApiError(400, "Missing required personal information fields"));
+    }
+    if (!isValidEmail(emailId)) {
+      return res.status(400).json(new ApiError(400, "Invalid email format"));
+    }
+    if (!isValidMobile(candidateMobile) || !isValidMobile(parentMobile)) {
+      return res.status(400).json(new ApiError(400, "Mobile numbers must be exactly 10 digits"));
+    }
     
     // Create profile with all related data
     const profile = await prisma.studentProfile.create({
@@ -289,6 +308,17 @@ const updateStudentProfile = async (req, res) => {
       competitiveExams,
       facultySelection
     } = req.body;
+
+    // Validation
+    if (!studentId || !studentFullName || !emailId) {
+      return res.status(400).json(new ApiError(400, "Missing required personal information fields"));
+    }
+    if (!isValidEmail(emailId)) {
+      return res.status(400).json(new ApiError(400, "Invalid email format"));
+    }
+    if (!isValidMobile(candidateMobile) || !isValidMobile(parentMobile)) {
+      return res.status(400).json(new ApiError(400, "Mobile numbers must be exactly 10 digits"));
+    }
     
     // Update profile with all related data
     const updatedProfile = await prisma.studentProfile.update({
@@ -355,6 +385,82 @@ export {
   createStudentProfile,
   getStudentProfile,
   updateStudentProfile
+};
+
+// Draft endpoints for autosave
+export const upsertStudentProfileDraft = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const body = req.body || {};
+
+    // Validate partials where applicable
+    if (body.emailId && !isValidEmail(body.emailId)) {
+      return res.status(400).json(new ApiError(400, "Invalid email format"));
+    }
+    if (body.candidateMobile && !isValidMobile(body.candidateMobile)) {
+      return res.status(400).json(new ApiError(400, "Candidate mobile must be exactly 10 digits"));
+    }
+    if (body.parentMobile && !isValidMobile(body.parentMobile)) {
+      return res.status(400).json(new ApiError(400, "Parent mobile must be exactly 10 digits"));
+    }
+
+    const data = {
+      userId,
+      studentId: body.studentId ?? undefined,
+      studentFullName: body.studentFullName ?? undefined,
+      emailId: body.emailId ?? undefined,
+      admissionMonth: body.admissionMonth ?? undefined,
+      admissionYear: body.admissionYear ?? undefined,
+      candidateMobile: body.candidateMobile ?? undefined,
+      parentMobile: body.parentMobile ?? undefined,
+      bondPeriodCompleted: body.bondPeriodCompleted ?? undefined,
+      placementThroughCDPC: body.placementThroughCDPC ?? undefined,
+      letterHeadCount: body.letterHeadCount ?? undefined,
+      facultySelection: body.facultySelection ?? undefined,
+      semesterResults: body.semesterResults ? JSON.stringify(body.semesterResults) : undefined,
+      universityPreferences: body.universityPreferences ? JSON.stringify(body.universityPreferences) : undefined,
+      competitiveExams: body.competitiveExams ? JSON.stringify(body.competitiveExams) : undefined,
+    };
+
+    const draft = await prisma.studentProfileDraft.upsert({
+      where: { userId },
+      update: data,
+      create: data,
+    });
+
+    // Parse JSON fields for response consistency
+    const parsed = {
+      ...draft,
+      semesterResults: draft.semesterResults ? JSON.parse(draft.semesterResults) : null,
+      universityPreferences: draft.universityPreferences ? JSON.parse(draft.universityPreferences) : null,
+      competitiveExams: draft.competitiveExams ? JSON.parse(draft.competitiveExams) : null,
+    };
+
+    return res.status(200).json(new ApiResponse(200, parsed, "Draft saved"));
+  } catch (err) {
+    console.error("Draft upsert error:", err);
+    return res.status(500).json(new ApiError(500, "Internal Server Error", err));
+  }
+};
+
+export const getStudentProfileDraft = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const draft = await prisma.studentProfileDraft.findUnique({ where: { userId } });
+    if (!draft) {
+      return res.status(404).json(new ApiError(404, "Draft not found"));
+    }
+    const parsed = {
+      ...draft,
+      semesterResults: draft.semesterResults ? JSON.parse(draft.semesterResults) : null,
+      universityPreferences: draft.universityPreferences ? JSON.parse(draft.universityPreferences) : null,
+      competitiveExams: draft.competitiveExams ? JSON.parse(draft.competitiveExams) : null,
+    };
+    return res.status(200).json(new ApiResponse(200, parsed, "Draft retrieved"));
+  } catch (err) {
+    console.error("Draft get error:", err);
+    return res.status(500).json(new ApiError(500, "Internal Server Error", err));
+  }
 };
 
 

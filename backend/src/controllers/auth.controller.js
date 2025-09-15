@@ -26,11 +26,12 @@ const loginUser = async (req, res) => {
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET
     );
+    const isProd = process.env.NODE_ENV === "production";
     const options = {
       maxAge: 1000 * 60 * 60,
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
     };
     res.cookie("token", token, options);
     delete user.password;
@@ -109,10 +110,11 @@ const ping = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
+    const isProd = process.env.NODE_ENV === "production";
     const options = {
       httpOnly: true,
-      secure: true,
-      sameSite: "None",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
       maxAge: 0,
     };
 

@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import postApi from '../../helpers/API/postApi';
 import getApi from '../../helpers/API/getApi';
+import putApi from '../../helpers/API/putApi';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router';
+import ErrorText from '../UI/ErrorText';
+import { UserContext } from '../../context/UserContext';
 
 const FirstTimeLoginForm = ({ onProfileComplete }) => {
   const [formData, setFormData] = useState({
@@ -44,6 +48,11 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
   const [examScore, setExamScore] = useState('');
   const [examFile, setExamFile] = useState(null);
   const [facultyMembers, setFacultyMembers] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [autoSaveStatus, setAutoSaveStatus] = useState(''); // '', 'Saving...', 'Saved'
+  const debounceTimer = useRef(null);
+  const navigate = useNavigate();
+  const { logoutUser } = useContext(UserContext);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -52,9 +61,10 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
 
-  // Fetch faculty members on component mount
+  // Fetch faculty members and draft on component mount
   useEffect(() => {
     fetchFacultyMembers();
+    fetchDraft();
   }, []);
 
   const fetchFacultyMembers = async () => {
@@ -82,11 +92,64 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
     }
   };
 
+  const fetchDraft = async () => {
+    try {
+      const response = await getApi('/students/profile/draft');
+      if (response?.statusCode === 200 && response.data) {
+        const d = response.data;
+        setFormData(prev => ({
+          ...prev,
+          studentId: d.studentId ?? prev.studentId,
+          studentFullName: d.studentFullName ?? prev.studentFullName,
+          emailId: d.emailId ?? prev.emailId,
+          admissionMonth: d.admissionMonth ?? prev.admissionMonth,
+          admissionYear: d.admissionYear ?? prev.admissionYear,
+          candidateMobile: d.candidateMobile ?? prev.candidateMobile,
+          parentMobile: d.parentMobile ?? prev.parentMobile,
+          bondPeriodCompleted: d.bondPeriodCompleted ?? prev.bondPeriodCompleted,
+          placementThroughCDPC: d.placementThroughCDPC ?? prev.placementThroughCDPC,
+          letterHeadCount: d.letterHeadCount ?? prev.letterHeadCount,
+          facultySelection: d.facultySelection ?? prev.facultySelection,
+          semesterResults: Array.isArray(d.semesterResults) && d.semesterResults.length
+            ? d.semesterResults
+            : prev.semesterResults,
+          universityPreferences: Array.isArray(d.universityPreferences)
+            ? d.universityPreferences
+            : prev.universityPreferences,
+          competitiveExams: Array.isArray(d.competitiveExams)
+            ? d.competitiveExams
+            : prev.competitiveExams,
+        }));
+      }
+    } catch (error) {
+      // No draft found or fetch error; ignore silently
+    }
+  };
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const mobileRegex = /^\d{10}$/;
+
+  const validateField = (field, value) => {
+    let message = '';
+    if (['studentId', 'studentFullName', 'emailId'].includes(field) && !value) {
+      message = 'This field is required';
+    }
+    if (field === 'emailId' && value && !emailRegex.test(value)) {
+      message = 'Invalid email format';
+    }
+    if ((field === 'candidateMobile' || field === 'parentMobile') && value && !mobileRegex.test(value)) {
+      message = 'Must be exactly 10 digits';
+    }
+    setErrors(prev => ({ ...prev, [field]: message }));
+    return message === '';
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+    validateField(field, value);
   };
 
   const handleSemesterChange = (semesterIndex, field, value) => {
@@ -97,6 +160,23 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
       )
     }));
   };
+
+  // Debounced autosave on form changes
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        setAutoSaveStatus('Saving...');
+        await putApi('/students/profile/draft', formData);
+        setAutoSaveStatus('Saved');
+        setTimeout(() => setAutoSaveStatus(''), 1000);
+      } catch (err) {
+        setAutoSaveStatus('');
+        // errors are already toasted in API helper
+      }
+    }, 600);
+    return () => debounceTimer.current && clearTimeout(debounceTimer.current);
+  }, [formData]);
 
   const addUniversity = () => {
     setFormData(prev => ({
@@ -162,12 +242,16 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.studentId || !formData.studentFullName || !formData.emailId) {
-      toast.error('Please fill in all required personal information fields');
+    // Frontend validation
+    const requiredOk = ['studentId','studentFullName','emailId'].every(f => validateField(f, formData[f]));
+    const emailOk = emailRegex.test(formData.emailId || '');
+    const candOk = !formData.candidateMobile || mobileRegex.test(formData.candidateMobile);
+    const parentOk = !formData.parentMobile || mobileRegex.test(formData.parentMobile);
+    if (!requiredOk || !emailOk || !candOk || !parentOk) {
+      toast.error('Please fix validation errors before submitting');
       return;
     }
-    
+
     if (!formData.facultySelection) {
       toast.error('Please select a faculty member');
       return;
@@ -195,6 +279,14 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
   const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 4));
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
+  const handleBack = () => navigate(-1);
+  const handleLogout = async () => {
+    try {
+      const res = await logoutUser();
+      if (res) navigate('/', { replace: true });
+    } catch {}
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -202,6 +294,13 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
           <h1 className="text-3xl font-bold text-center text-gray-900 mb-8">
             REQUEST FOR LETTER OF RECOMMENDATION / FURTHER STUDY
           </h1>
+          <div className="flex justify-between items-center mb-4">
+            <div className="text-sm text-gray-500">{autoSaveStatus}</div>
+            <div className="flex gap-2">
+              <button type="button" onClick={handleBack} className="px-3 py-1.5 bg-gray-200 rounded hover:bg-gray-300">Back</button>
+              <button type="button" onClick={handleLogout} className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700">Logout</button>
+            </div>
+          </div>
 
           {/* Progress Bar */}
           <div className="mb-8">
@@ -245,6 +344,7 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
+                    {errors.studentId && <ErrorText>{errors.studentId}</ErrorText>}
                   </div>
                   
                   <div>
@@ -256,6 +356,7 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
+                    {errors.studentFullName && <ErrorText>{errors.studentFullName}</ErrorText>}
                   </div>
                   
                   <div>
@@ -267,6 +368,7 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
+                    {errors.emailId && <ErrorText>{errors.emailId}</ErrorText>}
                   </div>
                   
                   <div>
@@ -302,6 +404,7 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
+                    {errors.candidateMobile && <ErrorText>{errors.candidateMobile}</ErrorText>}
                   </div>
                   
                   <div>
@@ -313,6 +416,7 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
+                    {errors.parentMobile && <ErrorText>{errors.parentMobile}</ErrorText>}
                   </div>
                 </div>
 
