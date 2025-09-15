@@ -78,6 +78,25 @@ async function main() {
     },
   });
 
+  // Ensure a demo StudentProfile exists for the student to prevent 404 on /student/profile
+  await prisma.studentProfile.upsert({
+    where: { userId: "student001" },
+    update: {},
+    create: {
+      userId: "student001",
+      studentId: "student001",
+      studentFullName: "Student User",
+      emailId: "student@example.com",
+      admissionMonth: "July",
+      admissionYear: 2024,
+      candidateMobile: "9999999999",
+      parentMobile: "8888888888",
+      bondPeriodCompleted: true,
+      placementThroughCDPC: false,
+      letterHeadCount: 0,
+    },
+  });
+
   console.log("Seed data created:");
   console.log("Batches:", batch1, batch2, batch3);
   console.log("Admin:", admin);

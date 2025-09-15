@@ -397,7 +397,6 @@ const StudentProfileView = ({ onEditMode, isEditMode, profileData, onProfileUpda
             <div>
               <h3 className="text-lg font-medium text-gray-800 mb-4">Academic Details</h3>
               <div className="space-y-3">
-                <div><strong>Letter Head Count:</strong> {profile.letterHeadCount}</div>
                 <div><strong>Profile Created:</strong> {new Date(profile.createdAt).toLocaleDateString()}</div>
                 <div><strong>Last Updated:</strong> {new Date(profile.updatedAt).toLocaleDateString()}</div>
               </div>

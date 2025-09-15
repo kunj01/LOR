@@ -22,8 +22,7 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
     bondPeriodCompleted: false,
     placementThroughCDPC: false,
     
-    // Letter Head
-    letterHeadCount: 1,
+    // Letter Head removed from profile; handled in LOR request
     
     // Faculty Selection
     facultySelection: '',
@@ -108,7 +107,6 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
           parentMobile: d.parentMobile ?? prev.parentMobile,
           bondPeriodCompleted: d.bondPeriodCompleted ?? prev.bondPeriodCompleted,
           placementThroughCDPC: d.placementThroughCDPC ?? prev.placementThroughCDPC,
-          letterHeadCount: d.letterHeadCount ?? prev.letterHeadCount,
           facultySelection: d.facultySelection ?? prev.facultySelection,
           semesterResults: Array.isArray(d.semesterResults) && d.semesterResults.length
             ? d.semesterResults
@@ -604,18 +602,7 @@ const FirstTimeLoginForm = ({ onProfileComplete }) => {
             {/* Step 3: Preferences */}
             {currentStep === 3 && (
               <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-800">Letter head for LOR</h2>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">No. of Letter Head</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.letterHeadCount}
-                    onChange={(e) => handleInputChange('letterHeadCount', parseInt(e.target.value) || 1)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+                <h2 className="text-xl font-semibold text-gray-800">University Preferences</h2>
 
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-gray-800">University Preference List</h3>

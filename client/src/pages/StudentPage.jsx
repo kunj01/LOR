@@ -38,7 +38,7 @@ function PasswordStrength({ password }) {
 }
 
 export default function StudentPage() {
-  const { userInfo, logoutUser, createLORRequest, getMyLORRequests } = useContext(UserContext);
+  const { userInfo, logoutUser, createLORRequest, getMyLORRequests, getLORRequestDetails, addLORComment, updateLORRequest, updateLORStatus } = useContext(UserContext);
   const navigate = useNavigate();
   
   // Profile management state
@@ -50,10 +50,20 @@ export default function StudentPage() {
   // LOR minimal form state
   const [teacherId, setTeacherId] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [copies, setCopies] = useState(1);
+  const [requestData, setRequestData] = useState({});
   const [lorLoading, setLorLoading] = useState(false);
   const [files, setFiles] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [editPurpose, setEditPurpose] = useState("");
+  const [editCopies, setEditCopies] = useState(1);
+  
+  const [newComment, setNewComment] = useState("");
+  const [resubmitFiles, setResubmitFiles] = useState([]);
   const [showResetModal, setShowResetModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -65,6 +75,110 @@ export default function StudentPage() {
     const items = await getMyLORRequests();
     setRequests(items);
   }
+
+  const openDetails = async (id) => {
+    try {
+      setDetailLoading(true);
+      const data = await getLORRequestDetails(id);
+      if (data) {
+        setSelectedRequest(data);
+        setEditPurpose(data.purpose || "");
+        setEditCopies(data.copies || 1);
+        setDetailModalOpen(true);
+      }
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const addComment = async () => {
+    if (!selectedRequest?.id || !newComment.trim()) return;
+    const comment = await addLORComment(selectedRequest.id, newComment.trim());
+    if (comment) {
+      setSelectedRequest(prev => ({ ...prev, comments: [ ...(prev.comments||[]), comment ] }));
+      setNewComment("");
+    }
+  };
+
+  const saveEdits = async () => {
+    if (!selectedRequest?.id) return;
+    const updated = await updateLORRequest(selectedRequest.id, {
+      purpose: editPurpose,
+      copies: editCopies,
+      
+    });
+    if (updated) {
+      toast.success("Saved edits");
+      setSelectedRequest(prev => ({ ...prev, ...updated }));
+      await loadRequests();
+    }
+  };
+
+  const resubmitForReview = async () => {
+    if (!selectedRequest?.id) return;
+    // First, if files were selected, upload them
+    try {
+      if (resubmitFiles.length > 0) {
+        const formData = new FormData();
+        for (const f of resubmitFiles) formData.append("files", f);
+        await axios.post(`${apiInfo.URL}/lor/${selectedRequest.id}/documents`, formData, { withCredentials: true });
+      }
+    } catch (e) {
+      toast.error("Failed to upload supporting documents");
+      return;
+    }
+    const updated = await updateLORStatus(selectedRequest.id, "PENDING", "Resubmitted by student");
+    if (updated) {
+      toast.success("Resubmitted for review");
+      setSelectedRequest(prev => ({ ...prev, status: updated.status }));
+      await loadRequests();
+    }
+  };
+
+  const downloadApprovedForm = () => {
+    if (!selectedRequest) return;
+    const s = selectedRequest;
+    const profile = s.student?.studentProfile || {};
+    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>LOR Form</title>
+      <style>body{font-family:Arial, sans-serif;padding:24px;color:#111}
+      h1{font-size:20px;margin:0 0 12px}
+      h2{font-size:16px;margin:18px 0 8px}
+      table{width:100%;border-collapse:collapse}
+      td,th{border:1px solid #777;padding:6px;font-size:12px;text-align:left}
+      .muted{color:#555;font-size:12px}
+      </style></head><body>
+      <h1>Application to Avail Letter of Recommendation from Faculty</h1>
+      <h2>Student Details</h2>
+      <table>
+        <tr><th>Full Name</th><td>${profile.studentFullName || s.student?.name || ""}</td></tr>
+        <tr><th>Student ID</th><td>${profile.studentId || ""}</td></tr>
+        <tr><th>Email</th><td>${s.student?.email || profile.emailId || ""}</td></tr>
+        <tr><th>Admission</th><td>${profile.admissionMonth || ""} ${profile.admissionYear || ""}</td></tr>
+        <tr><th>Mobile</th><td>${profile.candidateMobile || ""}</td></tr>
+      </table>
+      <h2>Academic Summary</h2>
+      <div class="muted">CGPAs/Attendance per semester may be attached separately.</div>
+      <h2>Request Details</h2>
+      <table>
+        <tr><th>Request ID</th><td>${s.id}</td></tr>
+        <tr><th>Purpose</th><td>${s.purpose || "-"}</td></tr>
+        <tr><th>Copies</th><td>${s.copies || "-"}</td></tr>
+        <tr><th>Status</th><td>${s.status}</td></tr>
+      </table>
+      <h2>Additional Fields</h2>
+      <pre style="white-space:pre-wrap;border:1px solid #777;padding:8px;font-size:12px;">${
+        s.requestData ? JSON.stringify(s.requestData, null, 2) : "{}"
+      }</pre>
+      <p class="muted">This document is generated from the LOR system.</p>
+      <script>window.print()</script>
+    </body></html>`;
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+    }
+  };
 
   // Load profile data on component mount
   useEffect(() => {
@@ -179,7 +293,7 @@ export default function StudentPage() {
     }
     setLorLoading(true);
     try {
-      const res = await createLORRequest({ teacherId: teacherId.trim(), purpose: purpose.trim() });
+      const res = await createLORRequest({ teacherId: teacherId.trim(), purpose: purpose.trim(), copies, requestData });
       if (res && res.id) {
         // Optimistically add to list
         setRequests(prev => [{ id: res.id, teacherId: teacherId.trim(), purpose: purpose.trim(), status: 'PENDING', createdAt: new Date().toISOString() }, ...prev]);
@@ -194,6 +308,8 @@ export default function StudentPage() {
         setTeacherId("");
         setPurpose("");
         setFiles([]);
+        setCopies(1);
+        setRequestData({});
         // Refresh list to ensure consistency
         await loadRequests();
       }
@@ -385,6 +501,16 @@ export default function StudentPage() {
                       </select>
                     </div>
                     <div>
+                      <label className="block text-sm font-medium mb-1">Number of copies</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        value={copies}
+                        onChange={(e) => setCopies(parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div>
                       <label className="block text-sm font-medium mb-1">Purpose (optional)</label>
                       <input
                         type="text"
@@ -420,9 +546,11 @@ export default function StudentPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Copies</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                        <th className="px-6 py-3"></th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -436,9 +564,13 @@ export default function StudentPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.id}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.teacherId}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.purpose || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">{r.copies || '-'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.status}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{ r.comment ? r.comment : '-'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{new Date(r.createdAt).toLocaleString()}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <Button type="MAIN" extraClasses="text-xs px-2 py-1" onClick={() => openDetails(r.id)}>View</Button>
+                            </td>
                           </tr>
                         ))
                       )}
@@ -450,6 +582,79 @@ export default function StudentPage() {
           </div>
         </div>
       </div>
+      {detailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-40 overflow-auto">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl mt-10 mb-10 p-6 relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => setDetailModalOpen(false)}>
+              <span className="text-2xl">&times;</span>
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">My LOR Request</h2>
+            {detailLoading || !selectedRequest ? (
+              <div className="text-gray-500">Loading...</div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-gray-50 p-4 rounded">
+                    <h3 className="font-semibold mb-2">Request Info</h3>
+                    <div className="text-sm text-gray-700 space-y-1">
+                      <div><strong>ID:</strong> {selectedRequest.id}</div>
+                      <div><strong>Status:</strong> {selectedRequest.status}</div>
+                      <div><strong>Teacher:</strong> {selectedRequest.teacher?.name || selectedRequest.teacherId}</div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded">
+                    <h3 className="font-semibold mb-2">Editable Fields</h3>
+                    <div className="space-y-2 text-sm">
+                      <label className="block">Purpose</label>
+                      <input className="w-full border rounded px-3 py-2" value={editPurpose} onChange={e=>setEditPurpose(e.target.value)} disabled={selectedRequest.status !== 'CHANGES_REQUESTED'} />
+                      <label className="block">Copies</label>
+                      <input type="number" min="1" className="w-full border rounded px-3 py-2" value={editCopies} onChange={e=>setEditCopies(parseInt(e.target.value)||1)} disabled={selectedRequest.status !== 'CHANGES_REQUESTED'} />
+                      {selectedRequest.status === 'CHANGES_REQUESTED' && (
+                        <div className="mt-2">
+                          <label className="block mb-1">Update Supporting Documents</label>
+                          <input type="file" multiple onChange={(e)=>setResubmitFiles(Array.from(e.target.files||[]))} className="w-full border rounded px-3 py-2" />
+                          <p className="text-xs text-gray-500 mt-1">New files will be added to existing ones.</p>
+                        </div>
+                      )}
+                      {selectedRequest.status === 'CHANGES_REQUESTED' && (
+                        <div className="flex gap-2 mt-2">
+                          <Button type="PRIMARY" extraClasses="px-3 py-2 text-sm" onClick={saveEdits}>Save</Button>
+                          <Button type="MAIN" extraClasses="px-3 py-2 text-sm" onClick={resubmitForReview}>Resubmit</Button>
+                        </div>
+                      )}
+                      {selectedRequest.status === 'APPROVED' && (
+                        <div className="mt-2">
+                          <Button type="PRIMARY" extraClasses="px-3 py-2 text-sm" onClick={downloadApprovedForm}>Download Form</Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Comments</h3>
+                  <div className="space-y-2 max-h-64 overflow-auto border rounded p-3">
+                    {(selectedRequest.comments || []).length === 0 && (
+                      <div className="text-gray-400 text-sm">No comments yet</div>
+                    )}
+                    {(selectedRequest.comments || []).map(c => (
+                      <div key={c.id} className="text-sm">
+                        <span className="font-semibold">{c.author?.name || c.authorId}</span>
+                        <span className="text-gray-400 text-xs ml-2">{new Date(c.createdAt).toLocaleString()}</span>
+                        <div>{c.body}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <input className="flex-1 border rounded px-3 py-2 text-sm" value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Write a comment..." />
+                    <Button type="PRIMARY" extraClasses="px-3 py-2 text-sm" onClick={addComment}>Send</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </PageWrapper>
   );
 }

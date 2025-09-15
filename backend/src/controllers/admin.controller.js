@@ -7,7 +7,7 @@ import bcrypt from "bcrypt";
 const getOrCreateBatch = async (batchName) => {
   let batch = await prisma.batch.findFirst({
     where: {
-      name: { equals: batchName, mode: 'insensitive' }
+      name: { equals: batchName }
     }
   });
   if (!batch) {

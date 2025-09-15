@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { UserContext } from "./UserContext";
 import getApi from "../helpers/API/getApi";
 import postApi from "../helpers/API/postApi";
+import patchApi from "../helpers/API/patchApi";
 // import putApi from "../helpers/API/putApi";
 import toast from "react-hot-toast";
 
@@ -128,12 +129,12 @@ export default function UserContextProvider({ children }) {
         return false;
     }
 
-    async function handleCreateLORRequest({ teacherId, purpose }) {
+    async function handleCreateLORRequest({ teacherId, purpose, copies, requestData }) {
         if (!teacherId) {
             toast.error("Teacher ID is required");
             return false;
         }
-        const res = await postApi("/lor", { teacherId, purpose });
+        const res = await postApi("/lor", { teacherId, purpose, copies, requestData });
         if (res?.statusCode === 201) {
             toast.success("LOR request submitted");
             return res.data;
@@ -154,6 +155,34 @@ export default function UserContextProvider({ children }) {
         }
     }
 
+    async function handleGetLORRequestDetails(id) {
+        const res = await getApi(`/lor/${id}`);
+        if (res?.statusCode === 200) return res.data;
+        toast.error(res?.message || "Failed to load request");
+        return null;
+    }
+
+    async function handleAddLORComment(id, body) {
+        const res = await postApi(`/lor/${id}/comments`, { body });
+        if (res?.statusCode === 201) return res.data;
+        toast.error(res?.message || "Failed to add comment");
+        return null;
+    }
+
+    async function handleUpdateLORRequest(id, data) {
+        const res = await patchApi(`/lor/${id}`, data);
+        if (res?.statusCode === 200) return res.data;
+        toast.error(res?.message || "Failed to update request");
+        return null;
+    }
+
+    async function handleUpdateLORStatus(id, status, comment = "") {
+        const res = await patchApi(`/lor/${id}/status`, { status, comment });
+        if (res?.statusCode === 200) return res.data;
+        toast.error(res?.message || "Failed to update status");
+        return null;
+    }
+
     const ctxValue = {
         userInfo: userInfo,
         setUserInfo: setUserData,
@@ -169,6 +198,10 @@ export default function UserContextProvider({ children }) {
         submitEntry: handleSubmitEntry,
         createLORRequest: handleCreateLORRequest,
         getMyLORRequests: handleGetMyLORRequests,
+        getLORRequestDetails: handleGetLORRequestDetails,
+        addLORComment: handleAddLORComment,
+        updateLORRequest: handleUpdateLORRequest,
+        updateLORStatus: handleUpdateLORStatus,
     }
 
     return (

@@ -13,7 +13,7 @@ const loginUser = async (req, res) => {
       return res.status(400).json(new ApiError(400, "Missing required fields"));
     }
     const user = await prisma.user.findFirst({
-      where: { id: { equals: enrollment_no, mode: "insensitive" } },
+      where: { id: { equals: enrollment_no } },
     });
     if (!user) {
       return res.status(404).json(new ApiError(404, "User not found"));
@@ -59,7 +59,7 @@ const restPassword = async (req, res) => {
     }
     
     const user = await prisma.user.findFirst({
-      where: { id: { equals: userId, mode: "insensitive" } },
+      where: { id: { equals: userId } },
     });
     
     if (!user) {
@@ -93,7 +93,7 @@ const ping = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await prisma.user.findFirst({
-      where: { id: { equals: userId, mode: "insensitive" } },
+      where: { id: { equals: userId } },
     });
     if (!user) {
       return res.status(404).json(new ApiError(404, "User not found"));
@@ -178,8 +178,8 @@ const registerUser = async (req, res) => {
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
-          { id: { equals: id, mode: "insensitive" } },
-          { email: { equals: email, mode: "insensitive" } }
+          { id: { equals: id } },
+          { email: { equals: email } }
         ]
       }
     });

@@ -23,6 +23,10 @@ export default function TeacherPage() {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [commentMap, setCommentMap] = useState({});
   const [showProfile, setShowProfile] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [newComment, setNewComment] = useState("");
 
   const handleLogout = async () => {
     try {
@@ -111,6 +115,34 @@ export default function TeacherPage() {
       console.error("Error updating status:", err);
       toast.error("Failed to update status");
     }
+  };
+
+  const openDetails = async (id) => {
+    try {
+      setDetailLoading(true);
+      const res = await getApi(`/lor/${id}`);
+      if (res?.statusCode === 200) {
+        setSelectedRequest(res.data);
+        setDetailModalOpen(true);
+      } else {
+        toast.error(res?.message || "Failed to load details");
+      }
+    } catch (e) {
+      toast.error("Failed to load details");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const addComment = async () => {
+    if (!selectedRequest?.id || !newComment.trim()) return;
+    try {
+      const res = await postApi(`/lor/${selectedRequest.id}/comments`, { body: newComment.trim() });
+      if (res?.statusCode === 201) {
+        setSelectedRequest(prev => ({ ...prev, comments: [...(prev.comments||[]), res.data] }));
+        setNewComment("");
+      }
+    } catch {}
   };
 
   const isValid =
@@ -324,7 +356,7 @@ export default function TeacherPage() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
+                    <table className="min-w-[1100px] w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
@@ -382,35 +414,42 @@ export default function TeacherPage() {
                                 {new Date(request.createdAt).toLocaleDateString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex flex-col space-y-2">
+                                  <Button
+                                    type="MAIN"
+                                    extraClasses="text-xs px-2 py-1"
+                                    onClick={() => openDetails(request.id)}
+                                  >
+                                    View Details
+                                  </Button>
                                 {request.status === 'PENDING' ? (
-                                  <div className="space-y-2">
-                                    <input
-                                      type="text"
-                                      value={commentMap[request.id] || ''}
-                                      onChange={(e) => setCommentMap(prev => ({ ...prev, [request.id]: e.target.value }))}
-                                      placeholder="Comment (optional)"
-                                      className="w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                    />
-                                    <div className="flex space-x-2">
-                                      <Button
-                                        type="PRIMARY"
-                                        extraClasses="text-xs px-2 py-1"
-                                        onClick={() => handleStatusUpdate(request.id, 'APPROVED', commentMap[request.id] || '')}
-                                      >
-                                        Approve
-                                      </Button>
-                                      <Button
-                                        type="SECONDARY"
-                                        extraClasses="text-xs px-2 py-1"
-                                        onClick={() => handleStatusUpdate(request.id, 'REJECTED', commentMap[request.id] || '')}
-                                      >
-                                        Reject
-                                      </Button>
-                                    </div>
+                                  <div className="flex space-x-2 mt-2">
+                                    <Button
+                                      type="PRIMARY"
+                                      extraClasses="text-xs px-2 py-1"
+                                      onClick={() => handleStatusUpdate(request.id, 'APPROVED', '')}
+                                    >
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      type="SECONDARY"
+                                      extraClasses="text-xs px-2 py-1"
+                                      onClick={() => handleStatusUpdate(request.id, 'REJECTED', '')}
+                                    >
+                                      Reject
+                                    </Button>
+                                    <Button
+                                      type="MAIN"
+                                      extraClasses="text-xs px-2 py-1"
+                                      onClick={() => handleStatusUpdate(request.id, 'CHANGES_REQUESTED', '')}
+                                    >
+                                      Request Changes
+                                    </Button>
                                   </div>
                                 ) : (
                                   <span className="text-gray-400">No actions available</span>
                                 )}
+                                </div>
                               </td>
                             </tr>
                             </React.Fragment>
@@ -425,6 +464,63 @@ export default function TeacherPage() {
           </div>
         </div>
       </div>
+      {detailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-40 overflow-auto">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl mt-10 mb-10 p-6 relative">
+            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => setDetailModalOpen(false)}>
+              <span className="text-2xl">&times;</span>
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">LOR Request Details</h2>
+            {detailLoading || !selectedRequest ? (
+              <div className="text-gray-500">Loading...</div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-gray-50 p-4 rounded">
+                    <h3 className="font-semibold mb-2">Student Profile</h3>
+                    <div className="text-sm text-gray-700 space-y-1">
+                      <div><strong>Name:</strong> {selectedRequest.student?.studentProfile?.studentFullName || selectedRequest.student?.name}</div>
+                      <div><strong>Student ID:</strong> {selectedRequest.student?.studentProfile?.studentId}</div>
+                      <div><strong>Email:</strong> {selectedRequest.student?.email}</div>
+                      <div><strong>Mobile:</strong> {selectedRequest.student?.studentProfile?.candidateMobile}</div>
+                      <div><strong>Admission:</strong> {selectedRequest.student?.studentProfile?.admissionMonth} {selectedRequest.student?.studentProfile?.admissionYear}</div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded">
+                    <h3 className="font-semibold mb-2">Request Info</h3>
+                    <div className="text-sm text-gray-700 space-y-1">
+                      <div><strong>ID:</strong> {selectedRequest.id}</div>
+                      <div><strong>Purpose:</strong> {selectedRequest.purpose || '-'}</div>
+                      <div><strong>Copies:</strong> {selectedRequest.copies || '-'}</div>
+                      <div><strong>Status:</strong> {selectedRequest.status}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Comments</h3>
+                  <div className="space-y-2 max-h-64 overflow-auto border rounded p-3">
+                    {(selectedRequest.comments || []).length === 0 && (
+                      <div className="text-gray-400 text-sm">No comments yet</div>
+                    )}
+                    {(selectedRequest.comments || []).map(c => (
+                      <div key={c.id} className="text-sm">
+                        <span className="font-semibold">{c.author?.name || c.authorId}</span>
+                        <span className="text-gray-400 text-xs ml-2">{new Date(c.createdAt).toLocaleString()}</span>
+                        <div>{c.body}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <input className="flex-1 border rounded px-3 py-2 text-sm" value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Write a comment..." />
+                    <Button type="PRIMARY" extraClasses="px-3 py-2 text-sm" onClick={addComment}>Send</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </PageWrapper>
   );
 }

@@ -84,23 +84,21 @@ export const updateRequestStatus = async (req, res) => {
       return res.status(404).json(new ApiError(404, "Request not found"));
     }
 
-    // Only assigned teacher or admin can change status
-    if (
-      !(
-        (req.user.role === "TEACHER" && item.teacherId === req.user.id) ||
-        req.user.role === "ADMIN"
-      )
-    ) {
-      return res.status(403).json(new ApiError(403, "Forbidden"));
-    }
+    // Authorization and workflow
+    const isTeacherOrAdmin =
+      (req.user.role === "TEACHER" && item.teacherId === req.user.id) ||
+      req.user.role === "ADMIN";
 
-    // Simple workflow rules:
-    // - Teacher/Admin can move PENDING -> APPROVED/REJECTED/CHANGES_REQUESTED
-    // - Student can move CHANGES_REQUESTED -> PENDING after edits
-    if (req.user.role === "STUDENT" && status === "PENDING" && item.status === "CHANGES_REQUESTED") {
-      // ok
-    } else if (req.user.role !== "STUDENT") {
-      if (item.status !== "PENDING" && item.status !== "CHANGES_REQUESTED") {
+    const isStudentOwner = req.user.role === "STUDENT" && req.user.id === item.studentId;
+
+    // Allow student owner to resubmit: any CHANGES_REQUESTED -> PENDING
+    if (isStudentOwner) {
+      if (!(status === "PENDING" && item.status === "CHANGES_REQUESTED")) {
+        return res.status(400).json(new ApiError(400, "Students can only resubmit to PENDING after changes requested"));
+      }
+    } else if (isTeacherOrAdmin) {
+      // Teacher/Admin allowed transitions when item is actionable
+      if (!(item.status === "PENDING" || item.status === "CHANGES_REQUESTED")) {
         return res.status(400).json(new ApiError(400, "Only pending/changes requested can be updated"));
       }
     } else {
@@ -282,13 +280,13 @@ export const uploadSupportingDocuments = async (req, res) => {
 
 export const listActiveTeachers = async (req, res) => {
   try {
-    const teachers = await prisma.user.findMany({
-      where: { role: "TEACHER", status: "ACTIVE" },
-      select: { id: true, name: true, email: true },
-      orderBy: { name: "asc" }
-    });
+    // Final fallback: fetch and filter in JS to bypass any enum query mismatches
+    const rawUsers = await prisma.user.findMany();
+    const rawTeachers = rawUsers.filter(u => u.role === "TEACHER");
+    const teachers = rawTeachers.map(t => ({ id: t.id, name: t.name, email: t.email }));
     return res.status(200).json(new ApiResponse(200, teachers, "OK"));
   } catch (err) {
+    console.error("/lor/teachers error:", err);
     return res.status(500).json(new ApiError(500, "Server Error", err));
   }
 };
@@ -296,6 +294,9 @@ export const listActiveTeachers = async (req, res) => {
 export const getRequestDetails = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!/^\d+$/.test(String(id))) {
+      return res.status(400).json(new ApiError(400, "Invalid request id"));
+    }
     const item = await prisma.lORRequest.findUnique({
       where: { id: Number(id) },
       include: {
