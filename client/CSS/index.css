@@ -6,14 +6,14 @@
 
 /* Light Theme Variables */
 :root {
-    --icon-fill: #333; /* Default dark color for light theme */
-    --icon-fill-hover: #7a7a7a; /* Dark grey for hover */
+  --icon-fill: #333; /* Default dark color for light theme */
+  --icon-fill-hover: #7a7a7a; /* Dark grey for hover */
 }
 
 /* Dark Theme Variables */
 .dark {
-    --icon-fill: #f1f1f1; /* Light grey for dark theme */
-    --icon-fill-hover: #fbfcff; /* White for hover */
+  --icon-fill: #f1f1f1; /* Light grey for dark theme */
+  --icon-fill-hover: #fbfcff; /* White for hover */
 }
 
 /* @font-face {
@@ -24,155 +24,148 @@
 *,
 *::after,
 *::before {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    line-height: 1;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  line-height: 1;
 }
 
 body {
-    font-family: "DM Sans", sans-serif;
-    /* letter-spacing: -.5px; */
-    font-weight: 500;
-    width: 100vw;
-    overflow-x: hidden;
-    /* font-size: 62.5%; */
-    font-stretch: 120%;
-    /* color: #cddfff; */
-    @apply bg-background-light text-font-dark dark:bg-background-dark dark:text-font-light;
+  font-family: "DM Sans", sans-serif;
+  /* letter-spacing: -.5px; */
+  font-weight: 500;
+  width: 100vw;
+  overflow-x: hidden;
+  /* font-size: 62.5%; */
+  font-stretch: 120%;
+  /* color: #cddfff; */
+  @apply bg-background-light text-font-dark dark:bg-background-dark dark:text-font-light;
 }
 
 input,
 button {
-    font-family: "DM Sans", sans-serif;
+  font-family: "DM Sans", sans-serif;
 }
 
 .stretched {
-    font-stretch: 110%;
-    /* color: #003d7f; */
+  font-stretch: 110%;
+  /* color: #003d7f; */
 }
 
 #_rht_toaster {
-    inset: 0px !important;
+  inset: 0px !important;
 }
 
 /* styles.css */
 .btn-primary {
-    font-stretch: 110%;
-    /* box-shadow: 0px 0px 10px 0 #ffffff66 inset, 0px 0px 0px 1px #408af9; */
-    /* box-shadow: ; */
-    @apply text-nowrap w-full text-base cursor-pointer px-4 py-2 inline-block rounded-xl bg-primary text-font-white hover:bg-primaryDark transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
+  font-stretch: 110%;
+  /* box-shadow: 0px 0px 10px 0 #ffffff66 inset, 0px 0px 0px 1px #408af9; */
+  /* box-shadow: ; */
+  @apply text-nowrap w-full md:w-auto text-sm md:text-base cursor-pointer px-4 py-2 inline-block rounded-xl bg-primary text-font-white hover:bg-primaryDark transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
 }
 
 .btn-primary-main {
-    font-stretch: 110%;
-    box-shadow:
-        0px 0px 8px -2px #ffffff55 inset,
-        0px 0px 0px 1px #408af9;
-    /* box-shadow: ; */
-    @apply text-nowrap w-full text-base cursor-pointer px-4 py-2 inline-block rounded-xl bg-primaryDark text-font-white hover:bg-primary transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
+  font-stretch: 110%;
+  box-shadow: 0px 0px 8px -2px #ffffff55 inset, 0px 0px 0px 1px #408af9;
+  /* box-shadow: ; */
+  @apply text-nowrap w-full md:w-auto text-sm md:text-base cursor-pointer px-4 py-2 inline-block rounded-xl bg-primaryDark text-font-white hover:bg-primary transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed max-w-full;
 
-    &:hover {
-        box-shadow:
-            0px 0px 10px -5px #ffffff66 inset,
-            0px 0px 0px 1px #408af9;
-    }
+  &:hover {
+    box-shadow: 0px 0px 10px -5px #ffffff66 inset, 0px 0px 0px 1px #408af9;
+  }
 }
 
 .btn-nav {
-    font-stretch: 110%;
-    @apply text-nowrap w-full text-base text-[.9rem] cursor-pointer p-3 inline-block rounded-xl text-font-darkGrey dark:text-font-light hover:text-primary hover:bg-primaryTranslucentHover focus:bg-primaryTranslucent transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
+  font-stretch: 110%;
+  @apply text-nowrap w-full text-sm md:text-base cursor-pointer p-3 inline-block rounded-xl text-font-darkGrey dark:text-font-light hover:text-primary hover:bg-primaryTranslucentHover focus:bg-primaryTranslucent transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
 
-    .nav-icon {
-        @apply inline-block text-[1.6rem] mr-2;
-        /* color: #5395ffb2; */
-    }
+  .nav-icon {
+    @apply inline-block text-[1.6rem] mr-2;
+    /* color: #5395ffb2; */
+  }
 }
 
 .btn-secondary {
-    font-stretch: 110%;
-    @apply text-nowrap w-full text-base cursor-pointer px-4 py-2 inline-block rounded-xl text-primary dark:text-background-greyDark bg-primaryLight hover:bg-primaryLight2 dark:bg-transparent dark:hover:bg-background-darkLight2 dark:border-2 dark:border-font-dark transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
+  font-stretch: 110%;
+  @apply text-nowrap w-full md:w-auto text-sm md:text-base cursor-pointer px-4 py-2 inline-block rounded-xl text-primary dark:text-background-greyDark bg-primaryLight hover:bg-primaryLight2 dark:bg-transparent dark:hover:bg-background-darkLight2 dark:border-2 dark:border-font-dark transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
 }
 
 .btn-tertiary {
-    font-stretch: 110%;
-    @apply text-nowrap w-full text-base cursor-pointer px-4 py-2 inline-block rounded-xl border-2 border-border-light bg-background-light text-font-dark hover:bg-background-grey dark:hover:bg-background-greyDark transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
+  font-stretch: 110%;
+  @apply text-nowrap w-full md:w-auto text-sm md:text-base cursor-pointer px-4 py-2 inline-block rounded-xl border-2 border-border-light bg-background-light text-font-dark hover:bg-background-grey dark:hover:bg-background-greyDark transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
 }
 
 .btn-danger {
-    font-stretch: 110%;
-    @apply text-nowrap w-full text-base cursor-pointer px-4 py-2 inline-block rounded-xl bg-background-redTranslucent2 text-background-red hover:bg-background-redTranslucent hover:text-background-red transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
+  font-stretch: 110%;
+  @apply text-nowrap w-full md:w-auto text-sm md:text-base cursor-pointer px-4 py-2 inline-block rounded-xl bg-background-redTranslucent2 text-background-red hover:bg-background-redTranslucent hover:text-background-red transition disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed;
 }
 
 .input-primary {
-    font-stretch: 110%;
-    @apply w-full px-4 py-[9px] rounded-xl bg-background-light autofill:!bg-background-light dark:autofill:bg-transparent text-font-dark dark:!bg-transparent dark:text-font-light border-2 border-border-light dark:border-border-dark focus:border-border-primary dark:focus:border-primary outline-none focus:ring-[4px] ring-primaryLight2 dark:ring-border-primaryDark transition;
+  font-stretch: 110%;
+  @apply w-full px-4 py-[9px] rounded-xl bg-background-light autofill:!bg-background-light dark:autofill:bg-transparent text-font-dark dark:!bg-transparent dark:text-font-light border-2 border-border-light dark:border-border-dark focus:border-border-primary dark:focus:border-primary outline-none focus:ring-[4px] ring-primaryLight2 dark:ring-border-primaryDark transition text-sm md:text-base;
 }
 
 .input-secondary {
-    font-stretch: 110%;
-    @apply px-4 py-2 rounded-xl bg-background-grey text-font-dark dark:bg-background-dark dark:text-font-light dark:border-2 dark:border-border-light outline-none transition;
+  font-stretch: 110%;
+  @apply px-4 py-2 rounded-xl bg-background-grey text-font-dark dark:bg-background-dark dark:text-font-light dark:border-2 dark:border-border-light outline-none transition text-sm md:text-base;
 }
 
 input:-webkit-autofill,
 input:-webkit-autofill:focus {
-    transition:
-        background-color 500000s 0s,
-        color 500000s 0s;
+  transition: background-color 500000s 0s, color 500000s 0s;
 }
 
 input:-webkit-autofill ~ label {
-    top: 0 !important;
-    left: 0 !important;
-    font-size: 0.875rem !important;
-    transition: all 0.3s ease-in-out;
+  top: 0 !important;
+  left: 0 !important;
+  font-size: 0.875rem !important;
+  transition: all 0.3s ease-in-out;
 }
 
 * {
-    &::-webkit-scrollbar {
-        width: 20px;
-        /* height: 8px; */
-    }
+  &::-webkit-scrollbar {
+    width: 20px;
+    /* height: 8px; */
+  }
 
-    &::-webkit-scrollbar-thumb {
-        background-color: #7c7c7c;
-        background-clip: content-box;
-        border: 8px solid rgba(0, 0, 0, 0) !important;
-        border-radius: 20px;
-    }
-    &::-webkit-scrollbar-track {
-        background-color: transparent !important;
-        border-radius: 20px;
-    }
-    
+  &::-webkit-scrollbar-thumb {
+    background-color: #7c7c7c;
+    background-clip: content-box;
+    border: 8px solid rgba(0, 0, 0, 0) !important;
+    border-radius: 20px;
+  }
+  &::-webkit-scrollbar-track {
+    background-color: transparent !important;
+    border-radius: 20px;
+  }
 }
 
 /* Remove placeholder text in Chrome, Edge, Safari */
 input[type="date"][value=""]:not(:focus)::-webkit-datetime-edit {
-    color: transparent;
+  color: transparent;
 }
 
 /* Remove placeholder text in Firefox */
 input[type="date"][value=""]::-moz-placeholder {
-    opacity: 0;
+  opacity: 0;
 }
 
 /* Remove placeholder text in Edge */
 input[type="date"][value=""]::-ms-input-placeholder {
-    opacity: 0;
+  opacity: 0;
 }
 
 /* Remove placeholder text in Chrome, Edge, Safari */
 input[type="time"][value=""]::-webkit-datetime-edit {
-    color: transparent;
+  color: transparent;
 }
 
 /* Remove placeholder text in Firefox */
 input[type="time"][value=""]::-moz-placeholder {
-    opacity: 0;
+  opacity: 0;
 }
 
 /* Remove placeholder text in Edge */
 input[type="time"][value=""]::-ms-input-placeholder {
-    opacity: 0;
+  opacity: 0;
 }
