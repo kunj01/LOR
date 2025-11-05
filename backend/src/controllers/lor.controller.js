@@ -3,6 +3,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import path from "path";
 import fs from "fs";
+import { generateLORApprovalPDF, generateLORRecommendationFormPDF } from "../utils/pdfGenerator.js";
 
 export const createRequest = async (req, res) => {
   try {
@@ -79,7 +80,17 @@ export const updateRequestStatus = async (req, res) => {
       return res.status(400).json(new ApiError(400, "Invalid status"));
     }
 
-    const item = await prisma.lORRequest.findUnique({ where: { id: Number(id) } });
+    const item = await prisma.lORRequest.findUnique({ 
+      where: { id: Number(id) },
+      include: {
+        student: {
+          include: {
+            studentProfile: true
+          }
+        },
+        teacher: true
+      }
+    });
     if (!item) {
       return res.status(404).json(new ApiError(404, "Request not found"));
     }
@@ -103,6 +114,39 @@ export const updateRequestStatus = async (req, res) => {
       }
     } else {
       return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    // Generate PDFs if status is being changed to APPROVED
+    if (status === "APPROVED" && item.status !== "APPROVED") {
+      try {
+        // Generate both PDF forms
+        const letterHeadPdfPath = await generateLORApprovalPDF(item);
+        const lorRecommendationPdfPath = await generateLORRecommendationFormPDF(item);
+        
+        const letterHeadPdfFilename = path.basename(letterHeadPdfPath);
+        const lorRecommendationPdfFilename = path.basename(lorRecommendationPdfPath);
+        
+        // Store PDF filenames in requestData
+        const updatedRequestData = {
+          ...(item.requestData && typeof item.requestData === 'object' ? item.requestData : {}),
+          letterHeadFormPdf: letterHeadPdfFilename,
+          lorRecommendationFormPdf: lorRecommendationPdfFilename
+        };
+        
+        const updated = await prisma.lORRequest.update({
+          where: { id: item.id },
+          data: { 
+            status, 
+            comment: comment ?? item.comment,
+            requestData: updatedRequestData
+          },
+        });
+
+        return res.status(200).json(new ApiResponse(200, updated, "Status updated and PDFs generated"));
+      } catch (pdfError) {
+        console.error("Error generating PDFs:", pdfError);
+        // Still update status even if PDF generation fails
+      }
     }
 
     const updated = await prisma.lORRequest.update({
@@ -382,6 +426,126 @@ export const updateRequest = async (req, res) => {
     });
     return res.status(200).json(new ApiResponse(200, updated, "Request updated"));
   } catch (err) {
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+// Download generated PDF for approved LOR request
+export const downloadLetterHeadFormPDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await prisma.lORRequest.findUnique({ where: { id: Number(id) } });
+    
+    if (!item) {
+      return res.status(404).json(new ApiError(404, "Request not found"));
+    }
+
+    // Only student owner, teacher, or admin can download
+    if (!(
+      req.user.role === "ADMIN" ||
+      req.user.id === item.studentId ||
+      req.user.id === item.teacherId
+    )) {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    // Check if request is approved
+    if (item.status !== "APPROVED") {
+      return res.status(400).json(new ApiError(400, "PDF is only available for approved requests"));
+    }
+
+    // Get PDF filename from requestData
+    let pdfFilename = null;
+    if (item.requestData && typeof item.requestData === 'object') {
+      pdfFilename = item.requestData.letterHeadFormPdf;
+    }
+
+    if (!pdfFilename) {
+      return res.status(404).json(new ApiError(404, "PDF not found. Please contact administrator."));
+    }
+
+    const pdfPath = path.join(process.cwd(), 'generated-pdfs', pdfFilename);
+
+    // Check if file exists
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json(new ApiError(404, "PDF file not found on server"));
+    }
+
+    // Send PDF file
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${pdfFilename}"`);
+    
+    const fileStream = fs.createReadStream(pdfPath);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (err) => {
+      console.error('Error reading PDF file:', err);
+      if (!res.headersSent) {
+        return res.status(500).json(new ApiError(500, "Error reading PDF file"));
+      }
+    });
+  } catch (err) {
+    console.error('Error in downloadLetterHeadFormPDF:', err);
+    return res.status(500).json(new ApiError(500, "Server Error", err));
+  }
+};
+
+// Download LOR Recommendation Form PDF for approved request
+export const downloadLORRecommendationFormPDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await prisma.lORRequest.findUnique({ where: { id: Number(id) } });
+    
+    if (!item) {
+      return res.status(404).json(new ApiError(404, "Request not found"));
+    }
+
+    // Only student owner, teacher, or admin can download
+    if (!(
+      req.user.role === "ADMIN" ||
+      req.user.id === item.studentId ||
+      req.user.id === item.teacherId
+    )) {
+      return res.status(403).json(new ApiError(403, "Forbidden"));
+    }
+
+    // Check if request is approved
+    if (item.status !== "APPROVED") {
+      return res.status(400).json(new ApiError(400, "PDF is only available for approved requests"));
+    }
+
+    // Get PDF filename from requestData
+    let pdfFilename = null;
+    if (item.requestData && typeof item.requestData === 'object') {
+      pdfFilename = item.requestData.lorRecommendationFormPdf;
+    }
+
+    if (!pdfFilename) {
+      return res.status(404).json(new ApiError(404, "PDF not found. Please contact administrator."));
+    }
+
+    const pdfPath = path.join(process.cwd(), 'generated-pdfs', pdfFilename);
+
+    // Check if file exists
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json(new ApiError(404, "PDF file not found on server"));
+    }
+
+    // Send PDF file
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${pdfFilename}"`);
+    
+    const fileStream = fs.createReadStream(pdfPath);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (err) => {
+      console.error('Error reading PDF file:', err);
+      if (!res.headersSent) {
+        return res.status(500).json(new ApiError(500, "Error reading PDF file"));
+      }
+    });
+  } catch (err) {
+    console.error('Error in downloadLORRecommendationFormPDF:', err);
     return res.status(500).json(new ApiError(500, "Server Error", err));
   }
 };

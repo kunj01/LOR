@@ -6,20 +6,22 @@ import { createStudentProfile, getStudentProfile, updateStudentProfile, upsertSt
 const router = Router();
 
 router.use(isAuthenticated);
+
+// Student Profile Routes (must come before /:id routes to avoid route matching conflicts)
+router.post('/profile', createStudentProfile);
+router.get('/profile', getStudentProfile);
+router.put('/profile', updateStudentProfile);
+
+// Draft routes for autosave
+router.get('/profile/draft', getStudentProfileDraft);
+router.put('/profile/draft', upsertStudentProfileDraft);
+
+// Admin routes (these require admin access via assertAdmin in controller)
 router.get("/", listStudents);
 router.post("/", createStudent);
 router.put("/:id", updateStudent);
 router.delete("/:id", deleteStudent);
 router.post("/submit", submitEntry);
-
-// Student Profile Routes
-router.post('/profile', isAuthenticated, createStudentProfile);
-router.get('/profile', isAuthenticated, getStudentProfile);
-router.put('/profile', isAuthenticated, updateStudentProfile);
-
-// Draft routes for autosave
-router.get('/profile/draft', isAuthenticated, getStudentProfileDraft);
-router.put('/profile/draft', isAuthenticated, upsertStudentProfileDraft);
 
 export default router;
 

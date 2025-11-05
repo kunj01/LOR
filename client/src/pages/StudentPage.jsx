@@ -135,48 +135,61 @@ export default function StudentPage() {
     }
   };
 
-  const downloadApprovedForm = () => {
+  const downloadLetterHeadForm = async () => {
     if (!selectedRequest) return;
-    const s = selectedRequest;
-    const profile = s.student?.studentProfile || {};
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>LOR Form</title>
-      <style>body{font-family:Arial, sans-serif;padding:24px;color:#111}
-      h1{font-size:20px;margin:0 0 12px}
-      h2{font-size:16px;margin:18px 0 8px}
-      table{width:100%;border-collapse:collapse}
-      td,th{border:1px solid #777;padding:6px;font-size:12px;text-align:left}
-      .muted{color:#555;font-size:12px}
-      </style></head><body>
-      <h1>Application to Avail Letter of Recommendation from Faculty</h1>
-      <h2>Student Details</h2>
-      <table>
-        <tr><th>Full Name</th><td>${profile.studentFullName || s.student?.name || ""}</td></tr>
-        <tr><th>Student ID</th><td>${profile.studentId || ""}</td></tr>
-        <tr><th>Email</th><td>${s.student?.email || profile.emailId || ""}</td></tr>
-        <tr><th>Admission</th><td>${profile.admissionMonth || ""} ${profile.admissionYear || ""}</td></tr>
-        <tr><th>Mobile</th><td>${profile.candidateMobile || ""}</td></tr>
-      </table>
-      <h2>Academic Summary</h2>
-      <div class="muted">CGPAs/Attendance per semester may be attached separately.</div>
-      <h2>Request Details</h2>
-      <table>
-        <tr><th>Request ID</th><td>${s.id}</td></tr>
-        <tr><th>Purpose</th><td>${s.purpose || "-"}</td></tr>
-        <tr><th>Copies</th><td>${s.copies || "-"}</td></tr>
-        <tr><th>Status</th><td>${s.status}</td></tr>
-      </table>
-      <h2>Additional Fields</h2>
-      <pre style="white-space:pre-wrap;border:1px solid #777;padding:8px;font-size:12px;">${
-        s.requestData ? JSON.stringify(s.requestData, null, 2) : "{}"
-      }</pre>
-      <p class="muted">This document is generated from the LOR system.</p>
-      <script>window.print()</script>
-    </body></html>`;
-    const w = window.open("", "_blank");
-    if (w) {
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
+    try {
+      const response = await axios.get(
+        `${apiInfo.URL}/lor/${selectedRequest.id}/pdf/letter-head`,
+        {
+          responseType: 'blob',
+          withCredentials: true,
+        }
+      );
+      
+      // Create a blob URL and trigger download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `letter-head-form-${selectedRequest.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Letter Head Form downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading letter head form:', error);
+      toast.error('Failed to download Letter Head Form');
+    }
+  };
+
+  const downloadLORRecommendationForm = async () => {
+    if (!selectedRequest) return;
+    try {
+      const response = await axios.get(
+        `${apiInfo.URL}/lor/${selectedRequest.id}/pdf/lor-recommendation`,
+        {
+          responseType: 'blob',
+          withCredentials: true,
+        }
+      );
+      
+      // Create a blob URL and trigger download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lor-recommendation-form-${selectedRequest.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('LOR Recommendation Form downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading LOR recommendation form:', error);
+      toast.error('Failed to download LOR Recommendation Form');
     }
   };
 
@@ -623,8 +636,17 @@ export default function StudentPage() {
                         </div>
                       )}
                       {selectedRequest.status === 'APPROVED' && (
-                        <div className="mt-2">
-                          <Button type="PRIMARY" extraClasses="px-3 py-2 text-sm" onClick={downloadApprovedForm}>Download Form</Button>
+                        <div className="mt-2 space-y-2">
+                          <div>
+                            <Button type="PRIMARY" extraClasses="px-3 py-2 text-sm w-full" onClick={downloadLetterHeadForm}>
+                              Download Letter Head Form
+                            </Button>
+                          </div>
+                          <div>
+                            <Button type="PRIMARY" extraClasses="px-3 py-2 text-sm w-full" onClick={downloadLORRecommendationForm}>
+                              Download LOR Recommendation Form
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
