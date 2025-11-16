@@ -4,7 +4,7 @@ import PageWrapper from "../components/UI/PageWrapper";
 import { useNavigate } from "react-router";
 import Button from "../components/UI/Buttons";
 import toast from "react-hot-toast";
-import { FiSettings } from "react-icons/fi";
+import { FiSettings, FiEye } from "react-icons/fi";
 import axios from "axios";
 import apiInfo from "../helpers/API/apiInfo";
 import getApi from "../helpers/API/getApi";
@@ -65,6 +65,8 @@ export default function StudentPage() {
   const [newComment, setNewComment] = useState("");
   const [resubmitFiles, setResubmitFiles] = useState([]);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showPurposeModal, setShowPurposeModal] = useState(false);
+  const [selectedPurpose, setSelectedPurpose] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -297,6 +299,11 @@ export default function StudentPage() {
     confirmPassword &&
     newPassword === confirmPassword &&
     newPassword.length >= 6;
+
+  const handleViewPurpose = (purpose) => {
+    setSelectedPurpose(purpose || "No purpose provided");
+    setShowPurposeModal(true);
+  };
 
   async function handleSubmitLOR(e) {
     e.preventDefault();
@@ -561,7 +568,6 @@ export default function StudentPage() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Copies</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                         <th className="px-6 py-3"></th>
                       </tr>
@@ -576,10 +582,32 @@ export default function StudentPage() {
                           <tr key={r.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.id}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.teacherId}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">{r.purpose || '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate max-w-xs">
+                                  {r.purpose ? (
+                                    (() => {
+                                      const words = r.purpose.split(" ");
+                                      const truncated = words.slice(0, 3).join(" ");
+                                      return words.length > 3 ? `${truncated}...` : truncated;
+                                    })()
+                                  ) : (
+                                    "-"
+                                  )}
+                                </span>
+                                {r.purpose && (
+                                  <button
+                                    onClick={() => handleViewPurpose(r.purpose)}
+                                    className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                                    title="View full purpose"
+                                  >
+                                    <FiEye className="text-sm" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.copies || '-'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{r.status}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">{ r.comment ? r.comment : '-'}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">{new Date(r.createdAt).toLocaleString()}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <Button type="MAIN" extraClasses="text-xs px-2 py-1" onClick={() => openDetails(r.id)}>View</Button>
@@ -674,6 +702,43 @@ export default function StudentPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Purpose View Modal */}
+      {showPurposeModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+          onClick={() => setShowPurposeModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+              onClick={() => setShowPurposeModal(false)}
+            >
+              <span className="text-2xl">&times;</span>
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              Purpose
+            </h2>
+            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {selectedPurpose}
+              </p>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="SECONDARY"
+                extraClasses="px-4 py-2"
+                onClick={() => setShowPurposeModal(false)}
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}

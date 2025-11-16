@@ -239,14 +239,16 @@ export const generateLetterHeadForm = async (data, outputPath) => {
   // Full Name
   doc.fontSize(10).font("Helvetica").text("Full Name:", leftMargin, yPos);
   const fullName = data.studentFullName || data.studentName || "";
-  drawTextField(leftMargin + 120, yPos, fieldWidth, fullName);
-  yPos += lineHeight;
+  // Consistent field alignment - all fields start at the same X position
+  drawTextField(leftMargin + 120, yPos+5, fieldWidth, fullName);
+  yPos += lineHeight + 4;
 
   // Student ID
   doc.fontSize(10).font("Helvetica").text("Student ID:", leftMargin, yPos);
   const studentId = data.studentId || "";
-  drawTextField(leftMargin + 120, yPos, fieldWidth, studentId);
-  yPos += lineHeight;
+  // Consistent field alignment
+  drawTextField(leftMargin + 120, yPos+5, fieldWidth, studentId);
+  yPos += lineHeight + 4;
 
   // Purpose of Letter head
   doc
@@ -254,9 +256,10 @@ export const generateLetterHeadForm = async (data, outputPath) => {
     .font("Helvetica")
     .text("Purpose of Letter head*:", leftMargin, yPos);
   const purpose = data.purpose || "";
-  const purposeFieldX = leftMargin + 140;
-  const purposeFieldWidth = fieldWidth + 60;
-  const purposeLineHeight = 18; // More space between lines to prevent overlap
+  // Align purpose field with other fields (same starting position)
+  const purposeFieldX = leftMargin + 120;
+  const purposeFieldWidth = fieldWidth + 80; // Wider field for purpose
+  const purposeLineHeight = 18; // Space between each line (text + underline)
 
   // Calculate how many lines of text the purpose will take
   let numTextLines = 1;
@@ -269,33 +272,48 @@ export const generateLetterHeadForm = async (data, outputPath) => {
   // Dynamic lines: at least 1 line, maximum 5 lines, based on actual text
   const purposeLines = Math.min(Math.max(numTextLines, 1), 5);
 
-  // Calculate where lines should start (aligned with text)
+  // Calculate where the first line should start (below label with spacing)
   const purposeStartY = yPos + 18; // Start lines below label with more spacing
+  const textOffsetAboveLine = 12; // Distance text should be above the line
 
-  // Write purpose text above the first line, then draw lines below each text line
+  // Write purpose text above the lines, then draw lines below each text line
   if (purpose) {
-    // Split text into lines for safety
+    // Split text into lines manually to ensure proper alignment
     const charsPerLine = Math.floor(purposeFieldWidth / 7);
     const purposeTextLines = [];
     for (let i = 0; i < purposeLines; i++) {
-      purposeTextLines.push(purpose.substr(i * charsPerLine, charsPerLine));
+      const startIdx = i * charsPerLine;
+      const endIdx = Math.min(startIdx + charsPerLine, purpose.length);
+      if (startIdx < purpose.length) {
+        purposeTextLines.push(purpose.substring(startIdx, endIdx));
+      }
     }
-    for (let i = 0; i < purposeTextLines.length; i++) {
-      doc
-        .fontSize(10)
-        .font("Helvetica")
-        .text(
-          purposeTextLines[i],
-          purposeFieldX,
-          purposeStartY + i * purposeLineHeight - 14,
-          {
-            width: purposeFieldWidth,
-            align: "left",
-          }
-        );
+    
+    // Draw text and lines with proper spacing
+    for (let i = 0; i < purposeLines; i++) {
+      const lineY = purposeStartY + i * purposeLineHeight;
+      const textY = lineY - textOffsetAboveLine; // Text 12 points above the line
+      
+      // Draw the text first
+      if (i < purposeTextLines.length && purposeTextLines[i]) {
+        doc
+          .fontSize(10)
+          .font("Helvetica")
+          .text(
+            purposeTextLines[i],
+            purposeFieldX,
+            textY,
+            {
+              width: purposeFieldWidth,
+              align: "left",
+            }
+          );
+      }
+      
+      // Then draw the line below the text
       drawLine(
         purposeFieldX,
-        purposeStartY + i * purposeLineHeight,
+        lineY,
         purposeFieldWidth
       );
     }
@@ -319,24 +337,30 @@ export const generateLetterHeadForm = async (data, outputPath) => {
     .font("Helvetica")
     .text("Number of copies required:", leftMargin, yPos);
   const copies = data.copies ? String(data.copies) : "";
-  drawTextField(leftMargin + 120, yPos, 80, copies);
-  yPos += lineHeight;
+  // Align field with other fields (same starting position as Full Name, Student ID)
+  // Use same yPos as label - drawTextField will place text above the line
+  drawTextField(leftMargin + 130, yPos + 10, 80, copies);
+  // Add extra spacing after copies field to prevent overlap
+  yPos += lineHeight + 10;
 
   // Signature of Applicant
   doc
     .fontSize(10)
     .font("Helvetica")
     .text("Signature of Applicant:", leftMargin, yPos);
-  drawTextField(leftMargin + 120, yPos, fieldWidth);
-  yPos += lineHeight;
+  // Align field with other fields (same starting position)
+  drawTextField(leftMargin + 115, yPos + 10, fieldWidth);
+  yPos += lineHeight + 10;
 
   // Signature of Counsellor/Teacher Recommending
   doc
     .fontSize(10)
     .font("Helvetica")
     .text("Signature of Counsellor/Teacher Recommending**:", leftMargin, yPos);
-  drawTextField(leftMargin + 320, yPos, fieldWidth);
-  yPos += lineHeight;
+  // For long label, start field further right to accommodate the label
+  const signatureFieldX = leftMargin + 245;
+  drawTextField(signatureFieldX, yPos + 10, fieldWidth);
+  yPos += lineHeight + 10;
 
   // Date
   doc.fontSize(10).font("Helvetica").text("Date:", leftMargin, yPos);
@@ -347,8 +371,9 @@ export const generateLetterHeadForm = async (data, outputPath) => {
       month: "2-digit",
       year: "numeric",
     });
-  drawTextField(leftMargin + 120, yPos, fieldWidth, date);
-  yPos += lineHeight;
+  // Align date field with other fields (same starting position)
+  drawTextField(leftMargin + 50, yPos + 10, fieldWidth, date);
+  yPos += lineHeight + 12;
 
   // Notes/Disclaimers - ensure proper spacing and no overlap
   doc
@@ -631,7 +656,7 @@ export const generateLORRecommendationForm = async (data, outputPath) => {
   // Full Name
   doc.fontSize(10).font("Helvetica").text("Full Name:", leftMargin, yPos);
   const fullName = data.studentFullName || data.studentName || "";
-  drawTextField(leftMargin + 90, yPos + 18, fieldWidth, fullName);
+  drawTextField(leftMargin + 90, yPos + 18  , fieldWidth, fullName);
   yPos += lineHeight + 10;
 
   // Student ID
@@ -728,7 +753,7 @@ export const generateLORRecommendationForm = async (data, outputPath) => {
     doc
       .fontSize(10)
       .font("Helvetica")
-      .text(purpose, purposeFieldX, purposeStartY - 12, {
+      .text(purpose, purposeFieldX, purposeStartY + 10, {
         width: purposeFieldWidth,
         align: "left",
         lineGap: purposeLineHeight - 4,

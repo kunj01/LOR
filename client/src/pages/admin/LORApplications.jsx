@@ -5,6 +5,8 @@ import toast from "react-hot-toast";
 import axios from "axios";
 import apiInfo from "../../helpers/API/apiInfo";
 import Tabs from "../../components/UI/Tabs";
+import { FiEye } from "react-icons/fi";
+import Button from "../../components/UI/Buttons";
 
 const LORApplications = () => {
   const [requests, setRequests] = useState([]);
@@ -14,6 +16,8 @@ const LORApplications = () => {
   const [teachers, setTeachers] = useState([]);
   const [activeStatus, setActiveStatus] = useState(0);
   const [expandedMobile, setExpandedMobile] = useState({});
+  const [showPurposeModal, setShowPurposeModal] = useState(false);
+  const [selectedPurpose, setSelectedPurpose] = useState("");
 
   useEffect(() => {
     fetchRequests();
@@ -138,6 +142,11 @@ const LORApplications = () => {
         : grouped.REJECTED,
     [activeStatus, grouped]
   );
+
+  const handleViewPurpose = (purpose) => {
+    setSelectedPurpose(purpose || "No purpose provided");
+    setShowPurposeModal(true);
+  };
 
   if (loading) {
     return (
@@ -265,7 +274,28 @@ const LORApplications = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
-                      {request.purpose || "-"}
+                      <div className="flex items-center gap-2">
+                        <span className="truncate max-w-xs">
+                          {request.purpose ? (
+                            (() => {
+                              const words = request.purpose.split(" ");
+                              const truncated = words.slice(0, 3).join(" ");
+                              return words.length > 3 ? `${truncated}...` : truncated;
+                            })()
+                          ) : (
+                            "-"
+                          )}
+                        </span>
+                        {request.purpose && (
+                          <button
+                            onClick={() => handleViewPurpose(request.purpose)}
+                            className="text-blue-600 hover:text-blue-800 flex-shrink-0"
+                            title="View full purpose"
+                          >
+                            <FiEye className="text-sm" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm hidden md:table-cell">
                       {request.documents && request.documents.length > 0 ? (
@@ -397,9 +427,28 @@ const LORApplications = () => {
                   <span className="text-gray-500">Email:</span>{" "}
                   {request.teacher?.email || "-"}
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="text-gray-500">Purpose:</span>{" "}
-                  {request.purpose || "-"}
+                  {request.purpose ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-700">
+                        {(() => {
+                          const words = request.purpose.split(" ");
+                          const truncated = words.slice(0, 3).join(" ");
+                          return words.length > 3 ? `${truncated}...` : truncated;
+                        })()}
+                      </span>
+                      <button
+                        onClick={() => handleViewPurpose(request.purpose)}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="View full purpose"
+                      >
+                        <FiEye className="text-sm" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-gray-500">Docs:</span>
@@ -478,6 +527,43 @@ const LORApplications = () => {
           )}
         </div>
       </div>
+
+      {/* Purpose View Modal */}
+      {showPurposeModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+          onClick={() => setShowPurposeModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+              onClick={() => setShowPurposeModal(false)}
+            >
+              <span className="text-2xl">&times;</span>
+            </button>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+              Purpose
+            </h2>
+            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {selectedPurpose}
+              </p>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="SECONDARY"
+                extraClasses="px-4 py-2"
+                onClick={() => setShowPurposeModal(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
